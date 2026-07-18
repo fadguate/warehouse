@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M4 FAD Kárdex - Control de Bodega</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --paper:#ECE3CC;
+  --paper-light:#F7F2E4;
+  --paper-dark:#DED0A6;
+  --ink:#242620;
+  --ink-soft:#5B5B4E;
+  --line:#C6B889;
+  --line-strong:#A99A6B;
+  --teal:#2F5D50;
+  --teal-light:#E4EEE9;
+  --rust:#8C3B2E;
+  --rust-light:#F3E3DE;
+  --amber:#B8842E;
+  --amber-dark:#8F6620;
+  --shadow: 0 2px 0 var(--line-strong), 0 6px 14px rgba(36,38,32,0.12);
+  --radius: 3px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0; overflow-x:hidden; max-width:100%;}
+body{
+  background:var(--paper);
+  background-image:
+    radial-gradient(rgba(36,38,32,0.035) 1px, transparent 1px);
+  background-size: 3px 3px;
+  color:var(--ink);
+  font-family:'IBM Plex Sans', sans-serif;
+  min-height:100vh;
+  width:100%;
+}
+h1,h2,h3,.display{
+  font-family:'Zilla Slab', serif;
+  font-weight:600;
+  letter-spacing:0.2px;
+}
+.mono{ font-family:'IBM Plex Mono', monospace; }
+button{ font-family:'IBM Plex Sans', sans-serif; cursor:pointer; }
+input, select, textarea{ font-family:'IBM Plex Sans', sans-serif; }
+
+/* ---------- Login ---------- */
+#login-screen{
+  min-height:100vh; display:flex; align-items:center; justify-content:center;
+  padding:24px;
+}
+.login-card{
+  background:var(--paper-light);
+  border:1px solid var(--line);
+  box-shadow:var(--shadow);
+  border-radius:var(--radius);
+  width:100%; max-width:380px;
+  padding:36px 32px 28px;
+  position:relative;
+}
+.login-card::before{
+  content:"";
+  position:absolute; top:0; left:28px; width:46px; height:14px;
+  background:var(--amber);
+  clip-path: polygon(0 0, 100% 0, 88% 100%, 12% 100%);
+}
+.login-eyebrow{
+  font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:2px;
+  text-transform:uppercase; color:var(--amber-dark); margin:8px 0 2px;
+}
+.login-card h1{ font-size:26px; margin:0 0 4px; color:var(--ink); }
+.login-sub{ color:var(--ink-soft); font-size:13px; margin:0 0 22px; }
+.field{ margin-bottom:16px; }
+.field label{ display:block; font-size:12px; font-weight:600; color:var(--ink-soft); margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px;}
+.field input, .field select{
+  width:100%; padding:10px 11px; border:1px solid var(--line-strong);
+  border-radius:2px; background:#fff; font-size:14px; color:var(--ink);
+}
+.field input:focus, .field select:focus{ outline:2px solid var(--amber); outline-offset:1px; }
+.btn{
+  display:inline-flex; align-items:center; gap:6px; justify-content:center;
+  border:1px solid var(--line-strong); background:var(--paper-dark); color:var(--ink);
+  padding:10px 16px; border-radius:2px; font-size:13px; font-weight:600;
+  letter-spacing:0.3px;
+}
+.btn:hover{ filter:brightness(0.97); }
+.btn:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+.btn-primary{ background:var(--teal); color:#fff; border-color:var(--teal); }
+.btn-primary:hover{ background:#274d42; }
+.btn-danger{ background:var(--rust); color:#fff; border-color:var(--rust); }
+.btn-danger:hover{ background:#762f24; }
+.btn-block{ width:100%; }
+.btn-sm{ padding:6px 10px; font-size:12px; }
+.login-hint{
+  margin-top:18px; font-size:11px; color:var(--ink-soft);
+  background:var(--teal-light); border:1px dashed var(--line-strong);
+  padding:8px 10px; border-radius:2px; line-height:1.5;
+}
+.error-msg{
+  background:var(--rust-light); border:1px solid var(--rust); color:var(--rust);
+  padding:8px 10px; border-radius:2px; font-size:13px; margin-bottom:14px;
+}
+.ok-msg{
+  background:var(--teal-light); border:1px solid var(--teal); color:var(--teal);
+  padding:8px 10px; border-radius:2px; font-size:13px; margin-bottom:14px;
+}
+
+/* ---------- App shell ---------- */
+#app-root{ display:none; min-height:100vh; flex-direction:column; }
+#app-root.activo{ display:flex; }
+.topbar{
+  background:var(--ink); color:var(--paper-light);
+  padding:14px 20px; display:flex; align-items:center; justify-content:space-between;
+  border-bottom:4px solid var(--amber);
+  flex-wrap:wrap; gap:12px; row-gap:12px;
+}
+.topbar .brand{ display:flex; align-items:center; gap:10px; min-width:0; }
+.brand-mark{
+  width:30px;height:30px; background:var(--amber); border-radius:2px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--ink); font-size:14px;
+  flex-shrink:0;
+}
+.topbar h1{ font-size:17px; margin:0; color:#fff; line-height:1.25; }
+.topbar .sub{ font-size:11px; color:#C9C4AD; font-family:'IBM Plex Mono',monospace; letter-spacing:0.5px;}
+.topbar-right{ display:flex; align-items:center; gap:10px; font-size:13px; flex-wrap:wrap; }
+@media (max-width: 720px){
+  .topbar{ padding:12px 14px; }
+  .topbar h1{ font-size:15px; }
+  .topbar .sub{ display:none; }
+  .topbar-right{ width:100%; justify-content:flex-start; }
+}
+.user-pill{
+  background:rgba(255,255,255,0.08); padding:6px 12px; border-radius:20px;
+  display:flex; align-items:center; gap:8px; font-size:12px;
+}
+.user-pill .rol{ color:var(--amber); font-family:'IBM Plex Mono',monospace; font-size:10px; text-transform:uppercase; }
+
+/* Tabs styled like kardex index-card dividers */
+.tabs{
+  display:flex; gap:4px; padding:0 22px; background:var(--paper-dark);
+  border-bottom:1px solid var(--line-strong); overflow-x:auto;
+}
+.tab-btn{
+  border:1px solid var(--line-strong); border-bottom:none;
+  background:var(--paper); color:var(--ink-soft);
+  padding:10px 18px 9px; margin-top:8px;
+  border-radius:6px 6px 0 0;
+  font-size:13px; font-weight:600; letter-spacing:0.3px;
+  position:relative; top:1px; white-space:nowrap;
+}
+.tab-btn.activo{
+  background:var(--paper-light); color:var(--ink);
+  border-color:var(--line-strong);
+  box-shadow: 0 -2px 0 var(--amber) inset;
+}
+main{ flex:1; padding:26px; max-width:1180px; width:100%; margin:0 auto; }
+.panel{ display:none; }
+.panel.activo{ display:block; }
+
+.card{
+  background:var(--paper-light); border:1px solid var(--line);
+  border-radius:var(--radius); box-shadow:var(--shadow); padding:22px 24px; margin-bottom:22px;
+}
+.card h2{ font-size:19px; margin:0 0 4px; }
+.card .desc{ font-size:13px; color:var(--ink-soft); margin:0 0 18px; }
+.eyebrow{
+  font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:2px;
+  text-transform:uppercase; color:var(--amber-dark); margin:0 0 6px;
+}
+
+.form-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px 16px; }
+@media (max-width:800px){ .form-grid{ grid-template-columns:1fr 1fr; } }
+@media (max-width:520px){ .form-grid{ grid-template-columns:1fr; } }
+.form-grid .field{ margin-bottom:0; }
+.form-actions{ margin-top:18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+table{ width:100%; border-collapse:collapse; font-size:13px; }
+thead th{
+  text-align:left; font-family:'IBM Plex Mono',monospace; font-size:10.5px;
+  text-transform:uppercase; letter-spacing:0.5px; color:var(--ink-soft);
+  border-bottom:2px solid var(--line-strong); padding:8px 10px; white-space:nowrap;
+}
+tbody td{ padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:middle; }
+tbody tr:nth-child(even){ background:rgba(184,132,46,0.05); }
+tbody tr:hover{ background:var(--teal-light); }
+.tag{
+  display:inline-block; padding:2px 8px; border-radius:20px; font-size:10.5px;
+  font-family:'IBM Plex Mono',monospace; font-weight:600; letter-spacing:0.3px;
+}
+.tag-ingreso{ background:var(--teal-light); color:var(--teal); }
+.tag-salida{ background:var(--rust-light); color:var(--rust); }
+.table-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:2px; }
+.empty-state{
+  text-align:center; padding:28px 12px; color:var(--ink-soft); font-size:13px;
+  border:1px dashed var(--line-strong); border-radius:2px; background:rgba(255,255,255,0.35);
+}
+
+.toolbar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+.toolbar input[type=search], .toolbar select{
+  padding:8px 10px; border:1px solid var(--line-strong); border-radius:2px; font-size:13px; background:#fff;
+}
+.pill-toggle{ display:flex; gap:6px; margin-bottom:18px; flex-wrap:wrap; }
+.pill-toggle button{
+  border:1px solid var(--line-strong); background:var(--paper); color:var(--ink-soft);
+  padding:7px 14px; border-radius:20px; font-size:12.5px; font-weight:600;
+}
+.pill-toggle button.activo{ background:var(--ink); color:var(--paper-light); border-color:var(--ink); }
+.subpanel{ display:none; }
+.subpanel.activo{ display:block; }
+
+.stat-row{ display:flex; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+.stat-box{
+  flex:1; min-width:150px; background:var(--paper); border:1px solid var(--line);
+  border-radius:2px; padding:14px 16px;
+}
+.stat-box .label{ font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace;}
+.stat-box .value{ font-family:'Zilla Slab',serif; font-size:24px; font-weight:600; margin-top:4px; }
+.right{ text-align:right; }
+footer.app-footer{
+  text-align:center; padding:16px; font-size:11px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace;
+}
+.notice{
+  background:var(--teal-light); border:1px solid var(--teal); border-left:4px solid var(--teal);
+  padding:12px 14px; border-radius:2px; font-size:12.5px; color:var(--ink); margin-bottom:18px; line-height:1.55;
+}
+.notice.warn{ background:var(--rust-light); border-color:var(--rust); border-left-color:var(--rust); }
+.hidden-file-input{ display:none; }
+.icon-btn{
+  background:none; border:none; color:var(--rust); font-size:12px; font-weight:600;
+  padding:4px 6px; border-radius:2px;
+}
+.icon-btn:hover{ background:var(--rust-light); }
+.divider{ height:1px; background:var(--line); margin:20px 0; }
+
+/* ---------- Print / boleta & reporte ---------- */
+#print-overlay{
+  display:none; position:fixed; inset:0; background:rgba(36,38,32,0.55); z-index:200;
+  align-items:flex-start; justify-content:center; overflow-y:auto; padding:36px 16px;
+}
+#print-overlay.abierto{ display:flex; }
+#acerca-overlay{
+  display:none; position:fixed; inset:0; background:rgba(36,38,32,0.55); z-index:200;
+  align-items:center; justify-content:center; padding:16px;
+}
+#acerca-overlay.abierto{ display:flex; }
+#acerca-card{
+  background:#fff; width:100%; max-width:420px; border-radius:6px;
+  box-shadow:0 12px 40px rgba(0,0,0,0.3); padding:26px 24px; color:#1a1a1a;
+}
+#acerca-card h2{ margin:0 0 4px; font-size:16px; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-soft); }
+#acerca-card p{ font-size:14px; line-height:1.7; color:#333; margin:16px 0; }
+#print-area{
+  background:#fff; width:100%; max-width:620px; border-radius:3px;
+  box-shadow:0 12px 40px rgba(0,0,0,0.3); padding:34px 34px 26px; color:#1a1a1a;
+}
+.boleta-header{ display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid var(--ink); padding-bottom:12px; margin-bottom:16px; }
+.boleta-header h2{ margin:0; font-size:20px; }
+.boleta-header .folio{ font-family:'IBM Plex Mono',monospace; font-size:13px; text-align:right; }
+.boleta-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px 20px; margin-bottom:18px; }
+.boleta-field{ font-size:13px; }
+.boleta-field .k{ font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:#666; font-family:'IBM Plex Mono',monospace;}
+.boleta-field .v{ font-weight:600; margin-top:2px; }
+.firma-row{ display:flex; gap:26px; margin-top:44px; }
+.firma-box{ flex:1; text-align:center; }
+.firma-linea{ border-top:1px dotted #333; margin-bottom:6px; padding-top:6px; }
+.firma-box .rol{ font-size:11px; color:#555; }
+.print-toolbar{ display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
+.reporte-titulo{ text-align:center; margin-bottom:4px; }
+.reporte-sub{ text-align:center; color:#555; font-size:12px; margin-bottom:18px; }
+table.reporte-tabla{ width:100%; font-size:12px; border-collapse:collapse; }
+table.reporte-tabla th, table.reporte-tabla td{ border:1px solid #999; padding:5px 7px; }
+table.reporte-tabla thead th{ background:#eee; }
+
+@media print{
+  body *{ visibility:hidden; }
+  #print-overlay, #print-overlay *{ visibility:visible; }
+  #print-overlay{ position:absolute; top:0; left:0; background:#fff; padding:0; display:flex !important; }
+  #print-area{ box-shadow:none; max-width:100%; }
+  .no-print{ display:none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="login-screen">
+  <div class="login-card" style="max-width:400px;">
+    <div class="login-eyebrow">Control de bodega</div>
+    <h1>M4 FAD Kárdex</h1>
+    <p class="login-sub" id="login-subtitulo">Inicia sesión para registrar y consultar el inventario.</p>
+    <div id="login-config-error"></div>
+    <div id="login-error"></div>
+
+    <form id="form-login" autocomplete="off">
+      <div class="field">
+        <label for="li-usuario">Usuario</label>
+        <input id="li-usuario" type="text" required>
+      </div>
+      <div class="field">
+        <label for="li-password">Contraseña</label>
+        <div style="position:relative;">
+          <input id="li-password" type="password" required style="padding-right:42px;">
+          <button type="button" class="icon-btn" id="li-toggle-pwd" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); padding:4px; font-size:16px;">👁️</button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
+    </form>
+
+    <form id="form-registro" autocomplete="off" style="display:none;">
+      <div class="field">
+        <label for="re-usuario">Elige un nombre de usuario</label>
+        <input id="re-usuario" type="text" required>
+      </div>
+      <div class="field">
+        <label for="re-correo">Correo electrónico (opcional)</label>
+        <input id="re-correo" type="email" placeholder="tu@correo.com">
+      </div>
+      <div class="field">
+        <label for="re-password">Elige una contraseña</label>
+        <div style="position:relative;">
+          <input id="re-password" type="password" required minlength="6" style="padding-right:42px;">
+          <button type="button" class="icon-btn" id="re-toggle-pwd" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); padding:4px; font-size:16px;">👁️</button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Crear cuenta</button>
+    </form>
+
+    <button type="button" class="btn btn-block" id="btn-alternar-registro" style="margin-top:10px;">¿Primera vez? Crear una cuenta</button>
+    <button type="button" class="btn btn-block" id="btn-recuperar-pwd" style="margin-top:6px; font-size:13px; opacity:0.8;">¿Olvidaste la contraseña?</button>
+    <div class="login-hint">La primera cuenta que se registre en este sistema queda automáticamente como <strong>Super Administrador</strong>. Las siguientes entran como Operador, y un Super Administrador puede ascenderlas luego desde Gestión → Usuarios.</div>
+  </div>
+</div>
+
+<!-- ===================== SELECTOR DE BODEGA ===================== -->
+<div id="selector-bodega-screen" style="display:none; min-height:100vh; align-items:center; justify-content:center; padding:24px;">
+  <div class="login-card" style="max-width:420px;">
+    <div class="login-eyebrow">M4 FAD Kárdex</div>
+    <h1 style="font-size:22px;">¿En qué bodega vas a trabajar?</h1>
+    <p class="login-sub">Elige el número de bodega. Puedes cambiarla luego sin cerrar sesión.</p>
+    <div id="selector-bodega-msg"></div>
+    <div id="lista-bodegas" style="display:flex; flex-direction:column; gap:8px; margin-bottom:18px;"></div>
+    <div id="selector-bodega-vacio" class="empty-state" style="display:none;">Todavía no hay bodegas creadas.</div>
+
+    <div id="crear-bodega-inline" style="display:none;">
+      <div class="divider"></div>
+      <p class="desc" style="margin-bottom:10px;">Como Super Administrador, puedes crear la primera bodega:</p>
+      <form id="form-bodega-inline" autocomplete="off">
+        <div class="field"><label>Número de bodega</label><input type="text" id="bi-numero" required placeholder="Ej. 1"></div>
+        <div class="field"><label>Nombre (opcional)</label><input type="text" id="bi-nombre" placeholder="Ej. Bodega Central"></div>
+        <button type="submit" class="btn btn-primary btn-block">Crear bodega</button>
+      </form>
+    </div>
+
+    <button type="button" class="btn btn-block" id="btn-logout-selector" style="margin-top:14px;">Cerrar sesión</button>
+  </div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="app-root">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">K</div>
+      <div>
+        <h1>M4 FAD Kárdex — Control de Bodega</h1>
+        <div class="sub" id="archivo-estado">Conectando con la base de datos…</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-sm" id="btn-cambiar-bodega" title="Cambiar de bodega">🏬 <span id="tb-bodega">—</span></button>
+      <button class="btn btn-sm" id="btn-actualizar" title="Volver a cargar los datos más recientes">↻ Actualizar</button>
+      <div class="user-pill">
+        <span id="tb-usuario">—</span>
+        <span class="rol" id="tb-rol">—</span>
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+        <button class="btn btn-sm" id="btn-logout">Cerrar sesión</button>
+        <button type="button" id="btn-acerca-de" style="display:flex; align-items:center; gap:5px; background:none; border:none; color:#C9C4AD; opacity:0.9; font-size:13px; cursor:pointer; padding:0;">ⓘ Acerca de</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn activo" data-tab="ingresos">Ingresos</button>
+    <button class="tab-btn" data-tab="salidas">Salidas</button>
+    <button class="tab-btn" data-tab="consultas">Consultas</button>
+    <button class="tab-btn" data-tab="reportes">Reportes</button>
+    <button class="tab-btn" data-tab="gestion">Gestión</button>
+  </div>
+
+  <main>
+
+    <!-- ---------- INGRESOS ---------- -->
+    <section class="panel activo" id="panel-ingresos">
+      <div class="card">
+        <div class="eyebrow">Entradas de bodega</div>
+        <h2>Registrar ingreso</h2>
+        <p class="desc">Agrega producto que entra a bodega. El saldo disponible se recalcula automáticamente.</p>
+        <div id="ingreso-msg"></div>
+        <form id="form-ingreso">
+          <div class="form-grid">
+            <div class="field"><label>Fecha</label><input type="date" id="in-fecha" required></div>
+            <div class="field"><label>Producto</label><input type="text" id="in-producto" list="dl-productos" required placeholder="Nombre del producto"></div>
+            <div class="field"><label>Cantidad ingresada</label><input type="number" id="in-ingreso" min="0.01" step="any" required></div>
+            <div class="field"><label>Descripción</label><input type="text" id="in-descripcion" placeholder="Detalle del artículo"></div>
+            <div class="field"><label>Marca</label><input type="text" id="in-marca" list="dl-marcas"></div>
+            <div class="field"><label>Tamaño</label><input type="text" id="in-talla" list="dl-tallas"></div>
+            <div class="field"><label>Proveedor</label><input type="text" id="in-proveedor" list="dl-proveedores"></div>
+            <div class="field"><label>Responsable de Compra</label><input type="text" id="in-responsable" required></div>
+            <div class="field"><label>Costo total del ingreso (Q)</label><input type="number" id="in-costo-total" min="0" step="any" required></div>
+            <div class="field">
+              <label>Costo unitario (calculado)</label>
+              <input type="text" id="in-costo-unitario" class="mono" readonly style="background:var(--paper-dark);" value="Q 0.00">
+            </div>
+            <div class="field"><label>Estante</label><input type="text" id="in-estante" list="dl-estantes"></div>
+            <div class="field"><label>Área</label><input type="text" id="in-area" list="dl-areas"></div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Registrar ingreso</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Ingresos registrados</h2>
+        <p class="desc">Historial de entradas en esta sesión.</p>
+        <div class="table-wrap">
+          <table id="tabla-ingresos">
+            <thead><tr>
+              <th>ID</th><th>Fecha</th><th>Producto</th><th>Descripción</th><th>Marca</th><th>Tamaño</th><th>Proveedor</th><th>Ingreso</th><th>Saldo</th><th>Responsable de Compra</th><th>Estante</th><th>Área</th><th>Costo total</th><th>Costo unit.</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="ingresos-vacio" class="empty-state">Todavía no hay ingresos registrados.</div>
+      </div>
+    </section>
+
+    <!-- ---------- SALIDAS ---------- -->
+    <section class="panel" id="panel-salidas">
+      <div class="card">
+        <div class="eyebrow">Salidas de bodega</div>
+        <h2>Registrar salida</h2>
+        <p class="desc">Solo se pueden retirar productos con saldo disponible. Al guardar se genera la boleta de entrega.</p>
+        <div id="salida-msg"></div>
+        <form id="form-salida">
+          <div class="form-grid">
+            <div class="field"><label>Fecha</label><input type="date" id="sa-fecha" required></div>
+            <div class="field">
+              <label>Producto</label>
+              <select id="sa-producto" required></select>
+            </div>
+            <div class="field"><label>Cantidad</label><input type="number" id="sa-salida" min="0.01" step="any" required></div>
+            <div class="field"><label>Descripción</label><input type="text" id="sa-descripcion" placeholder="Motivo o detalle de la salida"></div>
+            <div class="field"><label>Recibe</label><input type="text" id="sa-recibe" required placeholder="Quién recibe el producto"></div>
+            <div class="field"><label>Autoriza</label><input type="text" id="sa-autoriza" required placeholder="Quién autoriza la salida"></div>
+            <div class="field"><label>Estante</label><input type="text" id="sa-estante" list="dl-estantes"></div>
+            <div class="field"><label>Área</label><input type="text" id="sa-area" list="dl-areas"></div>
+          </div>
+          <p style="font-size:12.5px; color:var(--ink-soft); margin-top:12px;">Disponible del producto seleccionado: <strong id="sa-disponible" class="mono">—</strong></p>
+          <p style="font-size:12.5px; color:var(--ink-soft); margin-top:4px;">Retira / Encargado de bodega: <strong class="mono" id="sa-retira-actual">—</strong> (tu usuario, automático)</p>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Registrar salida y generar boleta</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Salidas registradas</h2>
+        <div class="table-wrap">
+          <table id="tabla-salidas">
+            <thead><tr>
+              <th>ID</th><th>Fecha</th><th>Producto</th><th>Descripción</th><th>Marca</th><th>Tamaño</th><th>Salida</th><th>Saldo</th><th>Retira</th><th>Recibe</th><th>Autoriza</th><th>Estante</th><th>Área</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="salidas-vacio" class="empty-state">Todavía no hay salidas registradas.</div>
+      </div>
+    </section>
+
+    <!-- ---------- CONSULTAS ---------- -->
+    <section class="panel" id="panel-consultas">
+      <div class="card">
+        <div class="eyebrow">Existencias</div>
+        <h2>Inventario disponible por producto</h2>
+        <p class="desc">Total disponible calculado como ingresos menos salidas, agrupado por producto.</p>
+        <div class="toolbar">
+          <input type="search" id="cons-buscar" placeholder="Buscar producto…">
+        </div>
+        <div class="stat-row">
+          <div class="stat-box"><div class="label">Productos distintos</div><div class="value" id="cons-total-productos">0</div></div>
+          <div class="stat-box"><div class="label">Unidades disponibles</div><div class="value" id="cons-total-unidades">0</div></div>
+          <div class="stat-box"><div class="label">Valor total en bodega</div><div class="value" id="cons-total-valor">Q 0.00</div></div>
+        </div>
+        <div class="table-wrap">
+          <table id="tabla-consultas">
+            <thead><tr><th>Producto</th><th>Descripción</th><th>Marca</th><th>Tamaño</th><th>Proveedor</th><th class="right">Disponible</th><th>Estante</th><th>Área</th><th class="right">Costo unit.</th><th class="right">Valor</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="consultas-vacio" class="empty-state">Aún no hay productos en el inventario.</div>
+      </div>
+    </section>
+
+    <!-- ---------- REPORTES ---------- -->
+    <section class="panel" id="panel-reportes">
+      <div class="card">
+        <div class="eyebrow">Impresión</div>
+        <h2>Reporte de inventario</h2>
+        <p class="desc">Genera un reporte imprimible del inventario completo, o filtrado por producto.</p>
+        <div class="toolbar">
+          <select id="rep-producto"></select>
+          <button class="btn" id="rep-generar">Generar vista previa</button>
+        </div>
+        <div class="table-wrap">
+          <table id="tabla-reporte">
+            <thead><tr>
+              <th>ID</th><th>Bodega</th><th>Fecha</th><th>Tipo</th><th>Producto</th><th>Descripción</th><th>Marca</th><th>Tamaño</th><th>Proveedor</th><th class="right">Ingreso</th><th class="right">Salida</th><th class="right">Saldo</th><th class="right">Saldo Q</th><th>Responsable</th><th>Estante</th><th>Área</th><th class="right">Costo unit.</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="reporte-vacio" class="empty-state">Genera una vista previa para ver los movimientos.</div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="rep-imprimir">Imprimir reporte</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- GESTION ---------- -->
+    <section class="panel" id="panel-gestion">
+      <div class="pill-toggle" id="gestion-tabs">
+        <button class="activo" data-sub="registros">Eliminar registros</button>
+        <button data-sub="usuarios">Usuarios</button>
+        <button data-sub="bodegas">Bodegas</button>
+        <button data-sub="accesos">Accesos a bodegas</button>
+        <button data-sub="datos">Datos (Excel)</button>
+      </div>
+
+      <div class="subpanel activo" id="sub-registros">
+        <div class="card">
+          <h2>Eliminar artículos ingresados por error</h2>
+          <p class="desc">Elimina un movimiento incorrecto. Los saldos se recalculan automáticamente después de borrar.</p>
+          <div id="gestion-solo-admin-msg" class="notice" style="display:none;">Solo un Administrador o Super Administrador puede eliminar movimientos. Puedes ver el historial completo, pero el botón "Eliminar" no está disponible para tu rol.</div>
+          <div class="table-wrap">
+            <table id="tabla-gestion">
+              <thead><tr><th>ID</th><th>Fecha</th><th>Tipo</th><th>Producto</th><th class="right">Ingreso</th><th class="right">Salida</th><th class="right">Saldo</th><th>Responsable</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div id="gestion-vacio" class="empty-state">No hay movimientos registrados todavía.</div>
+        </div>
+      </div>
+
+      <div class="subpanel" id="sub-usuarios">
+        <div class="card">
+          <h2>Usuarios con acceso</h2>
+          <p class="desc">Las contraseñas nunca pasan por nuestro código: las guarda y cifra el sistema de autenticación de Supabase.</p>
+          <div class="table-wrap">
+            <table id="tabla-usuarios">
+              <thead><tr><th>Usuario</th><th>Rol</th><th>Estado</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Cambiar mi contraseña</h2>
+          <div id="clave-msg"></div>
+          <form id="form-clave">
+            <div class="form-grid">
+              <div class="field"><label>Contraseña actual</label><input type="password" id="cl-actual" required></div>
+              <div class="field"><label>Nueva contraseña</label><input type="password" id="cl-nueva" required minlength="6"></div>
+            </div>
+            <div class="form-actions"><button type="submit" class="btn btn-primary">Actualizar contraseña</button></div>
+          </form>
+        </div>
+        <div class="card">
+          <h2>Crear cuenta para un compañero</h2>
+          <p class="desc">Crea el acceso y luego, si hace falta, cambia su rol desde la tabla de arriba (solo un Super Administrador puede hacerlo).</p>
+          <div id="usuario-msg"></div>
+          <form id="form-usuario">
+            <div class="form-grid">
+              <div class="field"><label>Usuario</label><input type="text" id="us-usuario" required></div>
+              <div class="field"><label>Contraseña</label><input type="password" id="us-password" required minlength="6"></div>
+            </div>
+            <div class="form-actions"><button type="submit" class="btn btn-primary">Crear usuario</button></div>
+          </form>
+        </div>
+      </div>
+
+      <div class="subpanel" id="sub-bodegas">
+        <div class="card">
+          <h2>Bodegas</h2>
+          <p class="desc">Cada bodega maneja su propio inventario y saldos por separado. Solo un Super Administrador puede crear, desactivar o reactivar bodegas.</p>
+          <div class="table-wrap">
+            <table id="tabla-bodegas">
+              <thead><tr><th>Número</th><th>Nombre</th><th>Estado</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" id="card-crear-bodega">
+          <h2>Crear bodega</h2>
+          <div id="bodega-msg"></div>
+          <form id="form-bodega">
+            <div class="form-grid">
+              <div class="field"><label>Número de bodega</label><input type="text" id="bo-numero" required placeholder="Ej. 2"></div>
+              <div class="field"><label>Nombre (opcional)</label><input type="text" id="bo-nombre" placeholder="Ej. Sucursal Norte"></div>
+            </div>
+            <div class="form-actions"><button type="submit" class="btn btn-primary">Crear bodega</button></div>
+          </form>
+        </div>
+      </div>
+
+      <div class="subpanel" id="sub-accesos">
+        <div class="card">
+          <h2>Accesos a bodegas</h2>
+          <p class="desc">Elige un usuario y marca a qué bodegas puede acceder. Un Super Administrador siempre tiene acceso a todas las bodegas, aunque no aparezca en esta lista.</p>
+          <div class="field"><label>Usuario</label><select id="acc-usuario"></select></div>
+          <div id="acc-lista-bodegas" style="display:flex; flex-direction:column; gap:8px; margin:16px 0;"></div>
+          <div id="acc-msg"></div>
+          <div class="form-actions"><button class="btn btn-primary" id="btn-guardar-accesos">Guardar accesos</button></div>
+        </div>
+      </div>
+
+      <div class="subpanel" id="sub-datos">
+        <div class="card">
+          <div class="eyebrow">Respaldo</div>
+          <h2>Exportar a Excel</h2>
+          <div class="notice">
+            El inventario ahora vive en tu base de datos de Supabase y se sincroniza automáticamente entre todos los que usan la app — ya no necesitas exportar ni importar para trabajar. Estos botones son solo para tener un respaldo en Excel de vez en cuando (por ejemplo, para enviarlo por correo o archivarlo).
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="btn-exportar-inventario">Descargar respaldo del inventario (.xlsx)</button>
+          </div>
+          <div class="divider"></div>
+          <h3 style="font-size:15px;">Migrar un Excel existente (una sola vez)</h3>
+          <p class="desc">Si ya tenías un inventario en Excel antes de usar esta app, puedes cargarlo aquí una vez para subir esos movimientos a la base de datos. Úsalo solo la primera vez, para no duplicar registros.</p>
+          <div id="migrar-solo-admin-msg" class="notice" style="display:none;">Solo un Super Administrador puede migrar un inventario desde Excel, para evitar registros duplicados por accidente.</div>
+          <div class="form-actions" id="migrar-admin-wrap">
+            <button class="btn" id="btn-importar-inventario">Migrar inventario desde Excel (.xlsx)</button>
+            <input type="file" id="file-inventario" class="hidden-file-input" accept=".xlsx,.xls">
+          </div>
+          <div id="datos-msg" style="margin-top:14px;"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">M4 FAD Kárdex · Control de Bodega — datos sincronizados en la nube con Supabase</footer>
+</div>
+
+<datalist id="dl-productos"></datalist>
+<datalist id="dl-estantes"></datalist>
+<datalist id="dl-areas"></datalist>
+<datalist id="dl-marcas"></datalist>
+<datalist id="dl-tallas"></datalist>
+<datalist id="dl-proveedores"></datalist>
+
+<!-- Print / boleta overlay -->
+<div id="acerca-overlay">
+  <div id="acerca-card">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <h2>Acerca de</h2>
+      <button type="button" id="btn-cerrar-acerca" style="background:none; border:none; font-size:20px; cursor:pointer; color:#666; line-height:1;">✕</button>
+    </div>
+    <p style="margin-top:2px; font-weight:700; font-size:16px; color:#1a1a1a;">M4 FAD Kárdex<br><span style="font-weight:400; font-size:13px; color:#777;">Control de Bodega</span></p>
+    <p>
+      <strong>Diseño y desarrollo:</strong> Leonel M. para IJM.
+    </p>
+    <p>
+      Esta aplicación fue creada utilizando metodologías de desarrollo asistido por IA.
+    </p>
+    <button type="button" class="btn btn-primary btn-block" id="btn-cerrar-acerca-2">Cerrar</button>
+  </div>
+</div>
+
+<div id="print-overlay">
+  <div id="print-area"></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============ CONFIGURACIÓN DE SUPABASE ============ */
+/* Reemplaza estos dos valores con los de tu propio proyecto:
+   Supabase > Project Settings > API > Project URL / anon public key */
+const SUPABASE_URL = 'https://fumklcmckfjibofrzhrb.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_xrianMYo8SGM8JwAAJN9QA_kE2--EEo';
+const CONFIG_PENDIENTE = SUPABASE_URL.includes('TU-PROYECTO') || SUPABASE_KEY.includes('TU-LLAVE');
+const DOMINIO_INTERNO = '@kardex.local'; // correo interno falso a partir del nombre de usuario
+
+const supabase = CONFIG_PENDIENTE ? null : window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ============ ESTADO ============ */
+let inventario = [];   // {id, fecha, producto, descripcion, marca, talla, proveedor, ingreso, salida, saldo, responsable, estante, area, costo, costo_total, tipo}
+let usuarios = [];      // {usuario, rol, activo} — reflejo de la tabla perfiles
+let bodegas = [];        // {id, numero, nombre, activa} — reflejo de la tabla bodegas
+let bodegaActual = null; // bodega en la que se está trabajando ahora mismo
+let misAccesosBodega = null; // Set de bodega_id a las que este usuario tiene acceso (null = todas, solo SuperAdministrador)
+let sesion = null;      // {id, usuario, rol, activo}
+let passwordActual = ''; // solo en memoria, para poder restaurar la sesión tras crear otro usuario
+let canales = [];
+
+const $ = (sel, ctx) => (ctx||document).querySelector(sel);
+const $all = (sel, ctx) => Array.from((ctx||document).querySelectorAll(sel));
+
+function fmtQ(n){ return 'Q ' + (Number(n)||0).toFixed(2); }
+function hoy(){ return new Date().toISOString().slice(0,10); }
+function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function emailDe(usuario){ return usuario.trim().toLowerCase() + DOMINIO_INTERNO; }
+function esSuperAdmin(){
+  return !!(sesion && sesion.rol === 'SuperAdministrador' && sesion.activo);
+}
+function esAdmin(){
+  return !!(sesion && (sesion.rol === 'Administrador' || sesion.rol === 'SuperAdministrador') && sesion.activo);
+}
+function esConsulta(){
+  return !!(sesion && sesion.rol === 'Consulta');
+}
+
+function mensajeError(err){
+  const m = (err && err.message) ? err.message : String(err);
+  if(/Invalid login credentials/i.test(m)) return 'Usuario o contraseña incorrectos.';
+  if(/Password should be at least/i.test(m)) return 'La contraseña debe tener al menos 6 caracteres.';
+  if(/already registered|already exists/i.test(m)) return 'Ya existe un usuario con ese nombre.';
+  if(/duplicate key.*bodegas_numero/i.test(m)) return 'Ya existe una bodega con ese número.';
+  return m;
+}
+
+function disponible(producto){
+  return inventario.filter(r => r.producto === producto)
+    .reduce((acc,r) => acc + (Number(r.ingreso)||0) - (Number(r.salida)||0), 0);
+}
+function ultimoValor(producto, campo){
+  for(let i = inventario.length - 1; i >= 0; i--){
+    if(inventario[i].producto === producto && inventario[i][campo]) return inventario[i][campo];
+  }
+  return '';
+}
+function productosDistintos(){
+  return Array.from(new Set(inventario.map(r => r.producto))).sort((a,b)=>a.localeCompare(b));
+}
+function valoresDistintos(campo){
+  return Array.from(new Set(inventario.map(r => r[campo]).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+}
+
+/* ============ CONFIGURACIÓN FALTANTE ============ */
+if(CONFIG_PENDIENTE){
+  $('#login-config-error').innerHTML = `<div class="error-msg">Esta app todavía no está conectada a una base de datos. Abre el archivo .html en un editor de texto y reemplaza <strong>SUPABASE_URL</strong> y <strong>SUPABASE_KEY</strong> cerca del final del archivo con los datos de tu proyecto de Supabase.</div>`;
+  $all('#form-login button, #form-registro button, #btn-alternar-registro').forEach(b => b.disabled = true);
+}
+
+/* ============ LOGIN / REGISTRO ============ */
+$('#btn-alternar-registro').addEventListener('click', () => {
+  const mostrandoRegistro = $('#form-registro').style.display !== 'none';
+  $('#form-registro').style.display = mostrandoRegistro ? 'none' : 'block';
+  $('#form-login').style.display = mostrandoRegistro ? 'block' : 'none';
+  $('#btn-alternar-registro').textContent = mostrandoRegistro ? '¿Primera vez? Crear una cuenta' : '¿Ya tienes cuenta? Iniciar sesión';
+  $('#login-subtitulo').textContent = mostrandoRegistro ? 'Inicia sesión para registrar y consultar el inventario.' : 'Crea tu cuenta de acceso a la bodega.';
+  $('#login-error').innerHTML = '';
+});
+
+/* ============ LOGIN/REGISTRO: toggle password visibility ============ */
+$('#li-toggle-pwd').addEventListener('click', (e) => {
+  e.preventDefault();
+  const inp = $('#li-password');
+  const isPassword = inp.type === 'password';
+  inp.type = isPassword ? 'text' : 'password';
+  e.target.textContent = isPassword ? '🙈' : '👁️';
+});
+
+$('#re-toggle-pwd').addEventListener('click', (e) => {
+  e.preventDefault();
+  const inp = $('#re-password');
+  const isPassword = inp.type === 'password';
+  inp.type = isPassword ? 'text' : 'password';
+  e.target.textContent = isPassword ? '🙈' : '👁️';
+});
+
+$('#btn-recuperar-pwd').addEventListener('click', async () => {
+  const usuario = prompt('Ingresa tu nombre de usuario:');
+  if(!usuario) return;
+  const email = emailDe(usuario.trim());
+  try{
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname
+    });
+    if(error) throw error;
+    alert('Se envió un correo de recuperación a: ' + email + '\n(Revisa tu bandeja de spam si no lo ves)');
+  } catch(err){
+    alert('No se pudo enviar el correo: ' + mensajeError(err));
+  }
+});
+
+$('#form-login').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errBox = $('#login-error');
+  errBox.innerHTML = '';
+  const usuario = $('#li-usuario').value.trim();
+  const password = $('#li-password').value;
+  try{
+    const { error } = await supabase.auth.signInWithPassword({ email: emailDe(usuario), password });
+    if(error) throw error;
+    passwordActual = password;
+    await cargarSesionActual();
+    entrarApp();
+  } catch(err){
+    errBox.innerHTML = '<div class="error-msg">' + escapeHtml(mensajeError(err)) + '</div>';
+  }
+});
+
+$('#form-registro').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errBox = $('#login-error');
+  errBox.innerHTML = '';
+  const usuario = $('#re-usuario').value.trim();
+  const correo = $('#re-correo').value.trim();
+  const password = $('#re-password').value;
+  if(!usuario || password.length < 6){
+    errBox.innerHTML = '<div class="error-msg">Elige un usuario y una contraseña de al menos 6 caracteres.</div>';
+    return;
+  }
+  try{
+    const { error } = await supabase.auth.signUp({ 
+      email: emailDe(usuario), 
+      password, 
+      options:{ data:{ usuario, correo } } 
+    });
+    if(error) throw error;
+    passwordActual = password;
+    await cargarSesionActual();
+    entrarApp();
+  } catch(err){
+    errBox.innerHTML = '<div class="error-msg">' + escapeHtml(mensajeError(err)) + '</div>';
+  }
+});
+
+async function cargarSesionActual(){
+  const { data:{ user }, error:errUser } = await supabase.auth.getUser();
+  if(errUser || !user) throw errUser || new Error('No se pudo obtener el usuario.');
+  const { data:perfil, error } = await supabase.from('perfiles').select('*').eq('id', user.id).single();
+  if(error) throw error;
+  if(!perfil.aprobado){
+    await supabase.auth.signOut();
+    throw new Error('Tu cuenta fue creada correctamente, pero está pendiente de aprobación por un Administrador. Intenta iniciar sesión más tarde.');
+  }
+  if(!perfil.activo){
+    await supabase.auth.signOut();
+    throw new Error('Tu cuenta está desactivada. Contacta a un administrador.');
+  }
+  sesion = { id:user.id, usuario:perfil.usuario, rol:perfil.rol, activo:perfil.activo };
+}
+
+function entrarApp(){
+  $('#login-screen').style.display = 'none';
+  $('#tb-usuario').textContent = sesion.usuario;
+  $('#tb-rol').textContent = sesion.rol;
+  mostrarSelectorBodega();
+}
+
+async function mostrarSelectorBodega(){
+  $('#app-root').classList.remove('activo');
+  $('#selector-bodega-screen').style.display = 'flex';
+  $('#selector-bodega-msg').innerHTML = '';
+  await Promise.all([ cargarBodegas(), cargarMisAccesosBodega() ]);
+  renderListaBodegas();
+}
+
+async function cargarBodegas(){
+  const { data, error } = await supabase.from('bodegas').select('*').order('numero');
+  if(error){ console.error(error); return; }
+  bodegas = data;
+}
+
+async function cargarMisAccesosBodega(){
+  if(esSuperAdmin()){ misAccesosBodega = null; return; } // null = acceso a todas
+  const { data, error } = await supabase.from('accesos_bodega').select('bodega_id').eq('perfil_id', sesion.id);
+  if(error){ console.error(error); misAccesosBodega = new Set(); return; }
+  misAccesosBodega = new Set(data.map(r => r.bodega_id));
+}
+
+function renderListaBodegas(){
+  const activas = bodegas.filter(b => b.activa && (esSuperAdmin() || (misAccesosBodega && misAccesosBodega.has(b.id))));
+  const cont = $('#lista-bodegas');
+  $('#selector-bodega-vacio').style.display = activas.length ? 'none' : 'block';
+  $('#selector-bodega-vacio').textContent = esSuperAdmin()
+    ? 'Todavía no hay bodegas creadas.'
+    : 'Todavía no tienes acceso a ninguna bodega. Pide a un Super Administrador que te lo asigne desde Gestión → Accesos a bodegas.';
+  cont.innerHTML = activas.map(b => `
+    <button type="button" class="btn" style="justify-content:flex-start;" data-elegir-bodega="${b.id}">
+      Bodega ${escapeHtml(b.numero)}${b.nombre ? ' — ' + escapeHtml(b.nombre) : ''}
+    </button>`).join('');
+  $all('[data-elegir-bodega]', cont).forEach(btn => {
+    btn.addEventListener('click', () => {
+      const b = bodegas.find(x => String(x.id) === btn.dataset.elegirBodega);
+      if(b) seleccionarBodega(b);
+    });
+  });
+  $('#crear-bodega-inline').style.display = (bodegas.filter(b=>b.activa).length === 0 && esSuperAdmin()) ? 'block' : 'none';
+}
+
+function seleccionarBodega(bodega){
+  bodegaActual = bodega;
+  $('#selector-bodega-screen').style.display = 'none';
+  $('#app-root').classList.add('activo');
+  $('#tb-bodega').textContent = 'Bodega ' + bodega.numero;
+  iniciarTiempoReal();
+  cargarTodoDesdeServidor();
+}
+
+$('#form-bodega-inline').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const numero = $('#bi-numero').value.trim();
+  const nombre = $('#bi-nombre').value.trim();
+  const msg = $('#selector-bodega-msg');
+  try{
+    const { error } = await supabase.from('bodegas').insert({ numero, nombre });
+    if(error) throw error;
+    e.target.reset();
+    await cargarBodegas();
+    renderListaBodegas();
+  } catch(err){
+    msg.innerHTML = '<div class="error-msg">' + escapeHtml(mensajeError(err)) + '</div>';
+  }
+});
+
+$('#btn-cambiar-bodega').addEventListener('click', () => {
+  detenerTiempoReal();
+  mostrarSelectorBodega();
+});
+
+$('#btn-logout-selector').addEventListener('click', () => cerrarSesion());
+
+async function cargarTodoDesdeServidor(){
+  $('#archivo-estado').textContent = 'Sincronizando…';
+  await Promise.all([ cargarInventario(), cargarUsuarios(), cargarBodegas() ]);
+  $('#archivo-estado').textContent = 'Conectado — datos sincronizados con Supabase';
+}
+
+$('#btn-actualizar').addEventListener('click', cargarTodoDesdeServidor);
+
+async function cerrarSesion(){
+  detenerTiempoReal();
+  await supabase.auth.signOut();
+  sesion = null;
+  passwordActual = '';
+  inventario = [];
+  usuarios = [];
+  bodegas = [];
+  bodegaActual = null;
+  $('#app-root').classList.remove('activo');
+  $('#selector-bodega-screen').style.display = 'none';
+  $('#login-screen').style.display = 'flex';
+  $('#li-usuario').value = '';
+  $('#li-password').value = '';
+}
+$('#btn-logout').addEventListener('click', cerrarSesion);
+
+$('#btn-acerca-de').addEventListener('click', () => $('#acerca-overlay').classList.add('abierto'));
+$('#btn-cerrar-acerca').addEventListener('click', () => $('#acerca-overlay').classList.remove('abierto'));
+$('#btn-cerrar-acerca-2').addEventListener('click', () => $('#acerca-overlay').classList.remove('abierto'));
+$('#acerca-overlay').addEventListener('click', (e) => { if(e.target.id === 'acerca-overlay') $('#acerca-overlay').classList.remove('abierto'); });
+
+/* ============ TIEMPO REAL ============ */
+function iniciarTiempoReal(){
+  const c1 = supabase.channel('movimientos-realtime')
+    .on('postgres_changes', { event:'*', schema:'public', table:'movimientos' }, () => cargarInventario())
+    .subscribe();
+  const c2 = supabase.channel('perfiles-realtime')
+    .on('postgres_changes', { event:'*', schema:'public', table:'perfiles' }, () => cargarUsuarios())
+    .subscribe();
+  const c3 = supabase.channel('bodegas-realtime')
+    .on('postgres_changes', { event:'*', schema:'public', table:'bodegas' }, () => cargarBodegas().then(renderBodegasTabla))
+    .subscribe();
+  canales = [c1, c2, c3];
+}
+function detenerTiempoReal(){
+  canales.forEach(c => supabase.removeChannel(c));
+  canales = [];
+}
+
+/* ============ TABS ============ */
+$all('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $all('.tab-btn').forEach(b => b.classList.remove('activo'));
+    $all('.panel').forEach(p => p.classList.remove('activo'));
+    btn.classList.add('activo');
+    $('#panel-' + btn.dataset.tab).classList.add('activo');
+  });
+});
+$all('#gestion-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $all('#gestion-tabs button').forEach(b => b.classList.remove('activo'));
+    $all('.subpanel').forEach(p => p.classList.remove('activo'));
+    btn.classList.add('activo');
+    $('#sub-' + btn.dataset.sub).classList.add('activo');
+    if(btn.dataset.sub === 'accesos') renderAccesosPanel();
+  });
+});
+
+/* ============ RENDER GENERAL ============ */
+function renderTodo(){
+  renderDatalists();
+  renderIngresos();
+  renderSalidas();
+  renderConsultas();
+  renderReporteSelect();
+  renderGestionTabla();
+  renderUsuariosTabla();
+  renderBodegasTabla();
+  aplicarPermisosDatos();
+  aplicarPermisosNav();
+}
+
+function aplicarPermisosDatos(){
+  const admin = esSuperAdmin();
+  $('#migrar-admin-wrap').style.display = admin ? 'flex' : 'none';
+  $('#migrar-solo-admin-msg').style.display = admin ? 'none' : 'block';
+}
+
+function aplicarPermisosNav(){
+  const consulta = esConsulta();
+  const tabIngresos = document.querySelector('.tab-btn[data-tab="ingresos"]');
+  const tabSalidas = document.querySelector('.tab-btn[data-tab="salidas"]');
+  const tabGestion = document.querySelector('.tab-btn[data-tab="gestion"]');
+  [tabIngresos, tabSalidas, tabGestion].forEach(t => { if(t) t.style.display = consulta ? 'none' : ''; });
+  if(consulta && tabIngresos && tabIngresos.classList.contains('activo')){
+    $all('.tab-btn').forEach(b => b.classList.remove('activo'));
+    $all('.panel').forEach(p => p.classList.remove('activo'));
+    const tabConsultas = document.querySelector('.tab-btn[data-tab="consultas"]');
+    tabConsultas.classList.add('activo');
+    $('#panel-consultas').classList.add('activo');
+  }
+  const btnAccesos = document.querySelector('#gestion-tabs button[data-sub="accesos"]');
+  if(btnAccesos) btnAccesos.style.display = esSuperAdmin() ? '' : 'none';
+}
+
+function renderDatalists(){
+  $('#dl-productos').innerHTML = productosDistintos().map(p => `<option value="${escapeHtml(p)}">`).join('');
+  $('#dl-estantes').innerHTML = valoresDistintos('estante').map(p => `<option value="${escapeHtml(p)}">`).join('');
+  $('#dl-areas').innerHTML = valoresDistintos('area').map(p => `<option value="${escapeHtml(p)}">`).join('');
+  $('#dl-marcas').innerHTML = valoresDistintos('marca').map(p => `<option value="${escapeHtml(p)}">`).join('');
+  $('#dl-tallas').innerHTML = valoresDistintos('talla').map(p => `<option value="${escapeHtml(p)}">`).join('');
+  $('#dl-proveedores').innerHTML = valoresDistintos('proveedor').map(p => `<option value="${escapeHtml(p)}">`).join('');
+}
+
+/* ============ INVENTARIO: cargar y recalcular ============ */
+function mapFila(r){
+  return { id:r.id, fecha:r.fecha, producto:r.producto, descripcion:r.descripcion||'',
+    marca:r.marca||'', talla:r.talla||'', proveedor:r.proveedor||'',
+    ingreso:Number(r.ingreso)||0, salida:Number(r.salida)||0, saldo:Number(r.saldo)||0,
+    responsable:r.responsable||'', recibe:r.recibe||'', autoriza:r.autoriza||'',
+    estante:r.estante||'', area:r.area||'',
+    costo:Number(r.costo)||0, costo_total:Number(r.costo_total)||0, tipo:r.tipo };
+}
+async function cargarInventario(){
+  if(!bodegaActual) return;
+  const { data, error } = await supabase.from('movimientos').select('*')
+    .eq('bodega_id', bodegaActual.id)
+    .order('fecha', { ascending:true }).order('id', { ascending:true });
+  if(error){ console.error(error); return; }
+  inventario = data.map(mapFila);
+  renderTodo();
+}
+async function recalcularSaldosProducto(producto){
+  if(!bodegaActual) return;
+  const { data, error } = await supabase.from('movimientos').select('id,ingreso,salida,fecha')
+    .eq('producto', producto).eq('bodega_id', bodegaActual.id)
+    .order('fecha', { ascending:true }).order('id', { ascending:true });
+  if(error){ console.error(error); return; }
+  let acumulado = 0;
+  const actualizaciones = data.map(r => {
+    acumulado += (Number(r.ingreso)||0) - (Number(r.salida)||0);
+    return { id:r.id, saldo:acumulado };
+  });
+  await Promise.all(actualizaciones.map(u => supabase.from('movimientos').update({ saldo:u.saldo }).eq('id', u.id)));
+}
+
+/* ============ INGRESOS ============ */
+$('#in-fecha').value = hoy();
+function actualizarCostoUnitarioCalculado(){
+  const cantidad = Number($('#in-ingreso').value);
+  const total = Number($('#in-costo-total').value);
+  const unitario = (cantidad > 0 && total > 0) ? (total / cantidad) : 0;
+  $('#in-costo-unitario').value = fmtQ(unitario);
+}
+$('#in-ingreso').addEventListener('input', actualizarCostoUnitarioCalculado);
+$('#in-costo-total').addEventListener('input', actualizarCostoUnitarioCalculado);
+
+$('#form-ingreso').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = $('#ingreso-msg');
+  const datos = {
+    fecha: $('#in-fecha').value,
+    producto: $('#in-producto').value.trim(),
+    descripcion: $('#in-descripcion').value.trim(),
+    marca: $('#in-marca').value.trim(),
+    talla: $('#in-talla').value.trim(),
+    proveedor: $('#in-proveedor').value.trim(),
+    ingreso: Number($('#in-ingreso').value),
+    responsable: $('#in-responsable').value.trim(),
+    estante: $('#in-estante').value.trim(),
+    area: $('#in-area').value.trim(),
+    costo_total: Number($('#in-costo-total').value)
+  };
+  if(!datos.producto || !datos.ingreso || datos.ingreso <= 0){
+    msg.innerHTML = '<div class="error-msg">Verifica el producto y la cantidad ingresada.</div>';
+    return;
+  }
+  if(!datos.costo_total || datos.costo_total <= 0){
+    msg.innerHTML = '<div class="error-msg">Ingresa el costo total de este ingreso.</div>';
+    return;
+  }
+  const costoUnitario = datos.costo_total / datos.ingreso;
+  msg.innerHTML = '<div class="ok-msg">Guardando…</div>';
+  try{
+    const { data:insertado, error } = await supabase.from('movimientos').insert({
+      fecha:datos.fecha, producto:datos.producto, descripcion:datos.descripcion,
+      marca:datos.marca, talla:datos.talla, proveedor:datos.proveedor,
+      ingreso:datos.ingreso, salida:0, saldo:0, responsable:datos.responsable,
+      estante:datos.estante, area:datos.area, costo:costoUnitario, costo_total:datos.costo_total,
+      tipo:'Ingreso', bodega_id:bodegaActual.id, creado_por:sesion.id
+    }).select().single();
+    if(error) throw error;
+    await recalcularSaldosProducto(datos.producto);
+    await cargarInventario();
+    msg.innerHTML = `<div class="ok-msg">Ingreso ${insertado.id} registrado correctamente.</div>`;
+    e.target.reset();
+    $('#in-fecha').value = hoy();
+    $('#in-costo-unitario').value = fmtQ(0);
+  } catch(err){
+    msg.innerHTML = '<div class="error-msg">No se pudo guardar: ' + escapeHtml(mensajeError(err)) + '</div>';
+  }
+});
+
+function renderIngresos(){
+  const filas = inventario.filter(r => r.tipo === 'Ingreso');
+  const tbody = $('#tabla-ingresos tbody');
+  tbody.innerHTML = filas.map(r => `
+    <tr>
+      <td class="mono">${r.id}</td><td>${r.fecha}</td><td>${escapeHtml(r.producto)}</td>
+      <td>${escapeHtml(r.descripcion)}</td><td>${escapeHtml(r.marca)}</td><td>${escapeHtml(r.talla)}</td><td>${escapeHtml(r.proveedor)}</td>
+      <td class="mono">${r.ingreso}</td><td class="mono">${r.saldo}</td>
+      <td>${escapeHtml(r.responsable)}</td><td>${escapeHtml(r.estante)}</td><td>${escapeHtml(r.area)}</td>
+      <td class="mono">${fmtQ(r.costo_total)}</td><td class="mono">${fmtQ(r.costo)}</td>
+    </tr>`).join('');
+  $('#ingresos-vacio').style.display = filas.length ? 'none' : 'block';
+  $('#tabla-ingresos').style.display = filas.length ? 'table' : 'none';
+}
+
+/* ============ SALIDAS ============ */
+$('#sa-fecha').value = hoy();
+function renderSelectProductosSalida(){
+  const sel = $('#sa-producto');
+  const actual = sel.value;
+  const productos = productosDistintos().map(p => ({ p, disp: disponible(p) })).filter(o => o.disp > 0);
+  if(productos.length === 0){
+    sel.innerHTML = '<option value="">— No hay productos con saldo disponible —</option>';
+  } else {
+    sel.innerHTML = productos.map(o => `<option value="${escapeHtml(o.p)}">${escapeHtml(o.p)} (disponible: ${o.disp})</option>`).join('');
+    if(productos.some(o => o.p === actual)) sel.value = actual;
+  }
+  actualizarDisponibleSalida();
+}
+function actualizarDisponibleSalida(){
+  const p = $('#sa-producto').value;
+  $('#sa-disponible').textContent = p ? disponible(p) : '—';
+}
+$('#sa-producto').addEventListener('change', actualizarDisponibleSalida);
+
+$('#form-salida').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const producto = $('#sa-producto').value;
+  const cantidad = Number($('#sa-salida').value);
+  const disp = disponible(producto);
+  const msg = $('#salida-msg');
+  if(!producto){
+    msg.innerHTML = '<div class="error-msg">Selecciona un producto con saldo disponible.</div>';
+    return;
+  }
+  if(!cantidad || cantidad <= 0 || cantidad > disp){
+    msg.innerHTML = `<div class="error-msg">La cantidad a retirar no puede ser mayor al disponible (${disp}).</div>`;
+    return;
+  }
+  const nuevaFila = {
+    fecha:$('#sa-fecha').value, producto,
+    descripcion: $('#sa-descripcion').value.trim(),
+    marca: ultimoValor(producto,'marca'),
+    talla: ultimoValor(producto,'talla'),
+    proveedor: ultimoValor(producto,'proveedor'),
+    ingreso:0, salida:cantidad, saldo:0,
+    responsable: sesion.usuario,
+    recibe: $('#sa-recibe').value.trim(),
+    autoriza: $('#sa-autoriza').value.trim(),
+    estante: $('#sa-estante').value.trim() || ultimoValor(producto,'estante'),
+    area: $('#sa-area').value.trim() || ultimoValor(producto,'area'),
+    costo: ultimoValor(producto,'costo') || 0,
+    tipo:'Salida'
+  };
+  msg.innerHTML = '<div class="ok-msg">Guardando…</div>';
+  try{
+    const { data:insertado, error } = await supabase.from('movimientos').insert({ ...nuevaFila, bodega_id:bodegaActual.id, creado_por:sesion.id }).select().single();
+    if(error) throw error;
+    await recalcularSaldosProducto(producto);
+    await cargarInventario();
+    msg.innerHTML = `<div class="ok-msg">Salida ${insertado.id} registrada. Generando boleta…</div>`;
+    e.target.reset();
+    $('#sa-fecha').value = hoy();
+    generarBoleta({ ...nuevaFila, id: insertado.id });
+  } catch(err){
+    msg.innerHTML = '<div class="error-msg">No se pudo guardar: ' + escapeHtml(mensajeError(err)) + '</div>';
+  }
+});
+
+function renderSalidas(){
+  if(sesion) $('#sa-retira-actual').textContent = sesion.usuario;
+  const filas = inventario.filter(r => r.tipo === 'Salida');
+  const tbody = $('#tabla-salidas tbody');
+  tbody.innerHTML = filas.map(r => `
+    <tr>
+      <td class="mono">${r.id}</td><td>${r.fecha}</td><td>${escapeHtml(r.producto)}</td>
+      <td>${escapeHtml(r.descripcion)}</td><td>${escapeHtml(r.marca)}</td><td>${escapeHtml(r.talla)}</td>
+      <td class="mono">${r.salida}</td><td class="mono">${r.saldo}</td>
+      <td>${escapeHtml(r.responsable)}</td><td>${escapeHtml(r.recibe)}</td><td>${escapeHtml(r.autoriza)}</td>
+      <td>${escapeHtml(r.estante)}</td><td>${escapeHtml(r.area)}</td>
+      <td><button class="btn btn-sm" data-boleta="${r.id}">Ver boleta</button></td>
+    </tr>`).join('');
+  $('#salidas-vacio').style.display = filas.length ? 'none' : 'block';
+  $('#tabla-salidas').style.display = filas.length ? 'table' : 'none';
+  $all('[data-boleta]', tbody).forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fila = inventario.find(r => String(r.id) === btn.dataset.boleta);
+      if(fila) generarBoleta(fila);
+    });
+  });
+  renderSelectProductosSalida();
+}
+
+/* ============ BOLETA DE SALIDA ============ */
+function generarBoleta(fila){
+  const html = `
+    <div class="boleta-header">
+      <div>
+        <h2>Boleta de salida de bodega</h2>
+        <div style="font-size:12px;color:#666;">Comprobante de entrega de artículo</div>
+      </div>
+      <div class="folio">Folio<br><strong style="font-size:18px;">${fila.id}</strong></div>
+    </div>
+    <div class="boleta-grid">
+      <div class="boleta-field"><div class="k">Bodega</div><div class="v">${bodegaActual ? escapeHtml(bodegaActual.numero) + (bodegaActual.nombre ? ' — ' + escapeHtml(bodegaActual.nombre) : '') : '—'}</div></div>
+      <div class="boleta-field"><div class="k">Fecha</div><div class="v">${fila.fecha}</div></div>
+      <div class="boleta-field"><div class="k">Producto</div><div class="v">${escapeHtml(fila.producto)}</div></div>
+      <div class="boleta-field"><div class="k">Marca</div><div class="v">${escapeHtml(fila.marca)||'—'}</div></div>
+      <div class="boleta-field"><div class="k">Tamaño</div><div class="v">${escapeHtml(fila.talla)||'—'}</div></div>
+      <div class="boleta-field" style="grid-column:span 2;"><div class="k">Descripción</div><div class="v">${escapeHtml(fila.descripcion)||'—'}</div></div>
+      <div class="boleta-field"><div class="k">Cantidad retirada</div><div class="v">${fila.salida}</div></div>
+      <div class="boleta-field"><div class="k">Responsable que retira</div><div class="v">${escapeHtml(fila.responsable)}</div></div>
+      <div class="boleta-field"><div class="k">Estante</div><div class="v">${escapeHtml(fila.estante)||'—'}</div></div>
+      <div class="boleta-field"><div class="k">Área</div><div class="v">${escapeHtml(fila.area)||'—'}</div></div>
+    </div>
+    <div class="firma-row">
+      <div class="firma-box"><div class="firma-linea"></div>Firma de quien retira<div class="rol">${escapeHtml(fila.responsable)} (Encargado de bodega)</div></div>
+      <div class="firma-box"><div class="firma-linea"></div>Firma de quien recibe<div class="rol">${escapeHtml(fila.recibe)}</div></div>
+      <div class="firma-box"><div class="firma-linea"></div>Firma de quien autoriza<div class="rol">${escapeHtml(fila.autoriza)}</div></div>
+    </div>
+    <div class="print-toolbar no-print">
+      <button class="btn" id="btn-cerrar-print">Cerrar</button>
+      <button class="btn btn-primary" id="btn-imprimir-print">Imprimir</button>
+    </div>
+  `;
+  mostrarPrintArea(html);
+}
+
+/* ============ CONSULTAS ============ */
+$('#cons-buscar').addEventListener('input', renderConsultas);
+function renderConsultas(){
+  const filtro = $('#cons-buscar').value.trim().toLowerCase();
+  const productos = productosDistintos()
+    .map(p => ({
+      producto: p,
+      descripcion: ultimoValor(p,'descripcion'),
+      marca: ultimoValor(p,'marca'),
+      talla: ultimoValor(p,'talla'),
+      proveedor: ultimoValor(p,'proveedor'),
+      disp: disponible(p),
+      estante: ultimoValor(p,'estante'),
+      area: ultimoValor(p,'area'),
+      costo: Number(ultimoValor(p,'costo')) || 0
+    }))
+    .filter(o => o.producto.toLowerCase().includes(filtro));
+
+  const tbody = $('#tabla-consultas tbody');
+  tbody.innerHTML = productos.map(o => `
+    <tr>
+      <td>${escapeHtml(o.producto)}</td><td>${escapeHtml(o.descripcion)}</td>
+      <td>${escapeHtml(o.marca)}</td><td>${escapeHtml(o.talla)}</td><td>${escapeHtml(o.proveedor)}</td>
+      <td class="mono right">${o.disp}</td><td>${escapeHtml(o.estante)}</td><td>${escapeHtml(o.area)}</td>
+      <td class="mono right">${fmtQ(o.costo)}</td><td class="mono right">${fmtQ(o.disp * o.costo)}</td>
+    </tr>`).join('');
+  $('#consultas-vacio').style.display = productos.length ? 'none' : 'block';
+  $('#tabla-consultas').style.display = productos.length ? 'table' : 'none';
+
+  $('#cons-total-productos').textContent = productos.length;
+  $('#cons-total-unidades').textContent = productos.reduce((a,o)=>a+o.disp,0);
+  $('#cons-total-valor').textContent = fmtQ(productos.reduce((a,o)=>a+o.disp*o.costo,0));
+}
+
+/* ============ REPORTES ============ */
+function renderReporteSelect(){
+  const sel = $('#rep-producto');
+  const actual = sel.value;
+  sel.innerHTML = '<option value="__todos__">Todos los productos</option>' +
+    productosDistintos().map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+  if(actual) sel.value = actual;
+}
+$('#rep-generar').addEventListener('click', () => {
+  const filtro = $('#rep-producto').value;
+  const filas = filtro === '__todos__' ? inventario : inventario.filter(r => r.producto === filtro);
+  const tbody = $('#tabla-reporte tbody');
+  tbody.innerHTML = filas.map(r => `
+    <tr>
+      <td class="mono">${r.id}</td><td>${bodegaActual ? escapeHtml(bodegaActual.numero) : '—'}</td><td>${r.fecha}</td>
+      <td><span class="tag ${r.tipo==='Ingreso'?'tag-ingreso':'tag-salida'}">${r.tipo}</span></td>
+      <td>${escapeHtml(r.producto)}</td><td>${escapeHtml(r.descripcion)}</td>
+      <td>${escapeHtml(r.marca)}</td><td>${escapeHtml(r.talla)}</td><td>${escapeHtml(r.proveedor)}</td>
+      <td class="mono right">${r.ingreso||''}</td><td class="mono right">${r.salida||''}</td>
+      <td class="mono right">${r.saldo}</td><td class="mono right">${fmtQ(r.saldo * r.costo)}</td>
+      <td>${escapeHtml(r.responsable)}</td><td>${escapeHtml(r.estante)}</td><td>${escapeHtml(r.area)}</td>
+      <td class="mono right">${fmtQ(r.costo)}</td>
+    </tr>`).join('');
+  $('#reporte-vacio').style.display = filas.length ? 'none' : 'block';
+  $('#tabla-reporte').style.display = filas.length ? 'table' : 'none';
+  $('#tabla-reporte').dataset.filtro = filtro;
+});
+$('#rep-imprimir').addEventListener('click', () => {
+  const filtro = $('#rep-producto').value;
+  const titulo = filtro === '__todos__' ? 'Todos los productos' : filtro;
+  const filas = filtro === '__todos__' ? inventario : inventario.filter(r => r.producto === filtro);
+  if(filas.length === 0){
+    $('#reporte-vacio').style.display = 'block';
+    $('#reporte-vacio').textContent = 'Genera una vista previa con movimientos antes de imprimir.';
+    return;
+  }
+  const totalIngreso = filas.reduce((a,r)=>a+(Number(r.ingreso)||0),0);
+  const totalSalida = filas.reduce((a,r)=>a+(Number(r.salida)||0),0);
+  const filasHtml = filas.map(r => `
+    <tr>
+      <td>${r.id}</td><td>${bodegaActual ? bodegaActual.numero : '—'}</td><td>${r.fecha}</td><td>${r.tipo}</td><td>${escapeHtml(r.producto)}</td>
+      <td>${escapeHtml(r.descripcion)}</td><td>${escapeHtml(r.marca)}</td><td>${escapeHtml(r.talla)}</td><td>${escapeHtml(r.proveedor)}</td>
+      <td>${r.ingreso||''}</td><td>${r.salida||''}</td><td>${r.saldo}</td><td>${fmtQ(r.saldo * r.costo)}</td>
+      <td>${escapeHtml(r.responsable)}</td><td>${escapeHtml(r.estante)}</td><td>${escapeHtml(r.area)}</td><td>${fmtQ(r.costo)}</td>
+    </tr>`).join('');
+  const html = `
+    <h2 class="reporte-titulo">Reporte de inventario</h2>
+    <p class="reporte-sub">Bodega ${escapeHtml(bodegaActual.numero)} — ${escapeHtml(bodegaActual.nombre||'Sin nombre')} · Producto: ${escapeHtml(titulo)} · Generado ${hoy()}</p>
+    <table class="reporte-tabla">
+      <thead><tr><th>ID</th><th>Bodega</th><th>Fecha</th><th>Tipo</th><th>Producto</th><th>Descripción</th><th>Marca</th><th>Tamaño</th><th>Proveedor</th><th>Ingreso</th><th>Salida</th><th>Saldo</th><th>Saldo Q</th><th>Responsable</th><th>Estante</th><th>Área</th><th>Costo unit.</th></tr></thead>
+      <tbody>${filasHtml}</tbody>
+      <tfoot><tr style="font-weight:700;"><td colspan="9">Totales</td><td>${totalIngreso}</td><td>${totalSalida}</td><td colspan="7"></td></tr></tfoot>
+    </table>
+    <div class="print-toolbar no-print">
+      <button class="btn" id="btn-cerrar-print">Cerrar</button>
+      <button class="btn btn-primary" id="btn-imprimir-print">Imprimir</button>
+    </div>
+  `;
+  mostrarPrintArea(html);
+});
+
+/* ============ IMPRESIÓN GENÉRICA ============ */
+function mostrarPrintArea(html){
+  $('#print-area').innerHTML = html;
+  $('#print-overlay').classList.add('abierto');
+  $('#btn-cerrar-print').addEventListener('click', cerrarPrintArea);
+  $('#btn-imprimir-print').addEventListener('click', () => window.print());
+}
+function cerrarPrintArea(){
+  $('#print-overlay').classList.remove('abierto');
+  $('#print-area').innerHTML = '';
+}
+$('#print-overlay').addEventListener('click', (e) => { if(e.target.id === 'print-overlay') cerrarPrintArea(); });
+
+/* ============ GESTIÓN: eliminar registros ============ */
+function renderGestionTabla(){
+  const tbody = $('#tabla-gestion tbody');
+  const admin = esAdmin();
+  tbody.innerHTML = inventario.map(r => `
+    <tr>
+      <td class="mono">${r.id}</td><td>${r.fecha}</td>
+      <td><span class="tag ${r.tipo==='Ingreso'?'tag-ingreso':'tag-salida'}">${r.tipo}</span></td>
+      <td>${escapeHtml(r.producto)}</td><td class="mono right">${r.ingreso||''}</td>
+      <td class="mono right">${r.salida||''}</td><td class="mono right">${r.saldo}</td>
+      <td>${escapeHtml(r.responsable)}</td>
+      <td>${admin ? `<button class="icon-btn" data-del="${r.id}" data-producto="${escapeHtml(r.producto)}">Eliminar</button>` : ''}</td>
+    </tr>`).join('');
+  $('#gestion-vacio').style.display = inventario.length ? 'none' : 'block';
+  $('#tabla-gestion').style.display = inventario.length ? 'table' : 'none';
+  $('#gestion-solo-admin-msg').style.display = admin ? 'none' : 'block';
+  $all('[data-del]', tbody).forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!confirm('¿Eliminar el movimiento ' + btn.dataset.del + '? Esta acción no se puede deshacer.')) return;
+      const { error } = await supabase.from('movimientos').delete().eq('id', btn.dataset.del);
+      if(error){
+        alert('No se pudo eliminar (¿tu cuenta es Administrador?): ' + mensajeError(error));
+        return;
+      }
+      await recalcularSaldosProducto(btn.dataset.producto);
+      await cargarInventario();
+    });
+  });
+}
+
+/* ============ GESTIÓN: usuarios ============ */
+async function cargarUsuarios(){
+  const { data, error } = await supabase.from('perfiles').select('id,usuario,rol,activo,aprobado').order('usuario');
+  if(error){ console.error(error); return; }
+  usuarios = data;
+  renderUsuariosTabla();
+}
+const ROLES_DISPONIBLES = ['Consulta','Operador','Administrador','SuperAdministrador'];
+function renderUsuariosTabla(){
+  const tbody = $('#tabla-usuarios tbody');
+  const admin = esAdmin();       // Administrador o SuperAdministrador: puede aprobar/activar
+  const superAdmin = esSuperAdmin(); // solo SuperAdministrador: puede cambiar roles
+  tbody.innerHTML = usuarios.map(u => `
+    <tr>
+      <td>${escapeHtml(u.usuario)}</td>
+      <td>${
+        (superAdmin && sesion.usuario !== u.usuario)
+          ? `<select class="mono" data-cambiar-rol="${escapeHtml(u.usuario)}" style="padding:4px 6px; font-size:12.5px;">
+              ${ROLES_DISPONIBLES.map(r => `<option value="${r}" ${r===u.rol?'selected':''}>${r}</option>`).join('')}
+            </select>`
+          : escapeHtml(u.rol)
+      }</td>
+      <td>
+        ${!u.aprobado ? '<span class="tag tag-salida">Pendiente de aprobación</span>' : `<span class="tag ${u.activo?'tag-ingreso':'tag-salida'}">${u.activo?'Activo':'Inactivo'}</span>`}
+      </td>
+      <td>${(admin && sesion.usuario !== u.usuario) ? `
+        ${!u.aprobado ? `
+          <button class="icon-btn" data-aprobar="${escapeHtml(u.usuario)}">Aprobar cuenta</button>
+          <button class="icon-btn" data-eliminar-usuario="${escapeHtml(u.usuario)}" style="color:var(--rust);">Eliminar</button>
+        ` : `
+        <button class="icon-btn" data-toggle-activo="${escapeHtml(u.usuario)}" data-activo="${u.activo}">${u.activo?'Desactivar':'Activar'}</button>
+        `}
+      ` : ''}</td>
+    </tr>`).join('');
+  $all('[data-aprobar]', tbody).forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const { error } = await supabase.from('perfiles').update({ aprobado:true }).eq('usuario', btn.dataset.aprobar);
+      if(error){ alert('No se pudo aprobar: ' + mensajeError(error)); return; }
+      await cargarUsuarios();
+    });
+  });
+  $all('[data-eliminar-usuario]', tbody).forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const usuario = btn.dataset.eliminarUsuario;
+      if(!confirm(`¿Eliminar la cuenta pendiente de "${usuario}"? Esta acción no se puede deshacer.`)) return;
+      const { error } = await supabase.from('perfiles').delete().eq('usuario', usuario);
+      if(error){ alert('No se pudo eliminar: ' + mensajeError(error)); return; }
+      await cargarUsuarios();
+    });
+  });
+  $all('[data-toggle-activo]', tbody).forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const activo = btn.dataset.activo === 'true';
+      const { error } = await supabase.from('perfiles').update({ activo: !activo }).eq('usuario', btn.dataset.toggleActivo);
+      if(error){ alert('No se pudo actualizar: ' + mensajeError(error)); return; }
+      await cargarUsuarios();
+    });
+  });
+  $all('[data-cambiar-rol]', tbody).forEach(sel => {
+    sel.addEventListener('change', async () => {
+      const { error } = await supabase.from('perfiles').update({ rol: sel.value }).eq('usuario', sel.dataset.cambiarRol);
+      if(error){ alert('No se pudo actualizar el rol: ' + mensajeError(error)); await cargarUsuarios(); return; }
+      await cargarUsuarios();
+    });
+  });
+}
+
+$('#form-usuario').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const usuario = $('#us-usuario').value.trim();
+  const password = $('#us-password').value;
+  const msg = $('#usuario-msg');
+  msg.innerHTML = '<div class="ok-msg">Creando cuenta…</div>';
+  try{
+    const { error } = await supabase.auth.signUp({ email: emailDe(usuario), password, options:{ data:{ usuario } } });
+    if(error) throw error;
+    // Crear el usuario nos deja con su sesión activa; recuperamos la nuestra.
+    const { error: errRestaurar } = await supabase.auth.signInWithPassword({ email: emailDe(sesion.usuario), password: passwordActual });
+    if(errRestaurar){
+      msg.innerHTML = '<div class="error-msg">El usuario se creó, pero tu sesión se cerró. Vuelve a iniciar sesión.</div>';
+      await cargarUsuarios();
+      return;
+    }
+    await cargarSesionActual();
+    await cargarUsuarios();
+    msg.innerHTML = `<div class="ok-msg">Usuario "${escapeHtml(usuario)}" creado correctamente.</div>`;
+    e.target.reset();
+  } catch(err){
+    msg.innerHTML = '<div class="error-msg">' + escapeHtml(mensajeError(err)) + '</div>';
+  }
+});
+
+$('#form-clave').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const actual = $('#cl-actual').value;
+  const nueva = $('#cl-nueva').value;
+  const msg = $('#clave-msg');
+  try{
+    const { error: errVerif } = await supabase.auth.signInWithPassword({ email: emailDe(sesion.usuario), password: actual });
+    if(errVerif){
+      msg.innerHTML = '<div class="error-msg">La contraseña actual no es correcta.</div>';
+      return;
+    }
+    const { error } = await supabase.auth.updateUser({ password: nueva });
+    if(error) throw error;
+    passwordActual = nueva;
+    msg.innerHTML = '<div class="ok-msg">Contraseña actualizada.</div>';
+    e.target.reset();
+  } catch(err){
+    msg.innerHTML = '<div class="error-msg">' + escapeHtml(mensajeError(err)) + '</div>';
+  }
+});
+
+/* ============ GESTIÓN: bodegas ============ */
+function renderBodegasTabla(){
+  const tbody = $('#tabla-bodegas tbody');
+  if(!tbody) return;
+  const superAdmin = esSuperAdmin();
+  tbody.innerHTML = bodegas.map(b => `
+    <tr>
+      <td class="mono">${escapeHtml(b.numero)}</td><td>${escapeHtml(b.nombre)}</td>
+      <td><span class="tag ${b.activa?'tag-ingreso':'tag-salida'}">${b.activa?'Activa':'Inactiva'}</span></td>
+      <td>${superAdmin ? `<button class="icon-btn" data-toggle-bodega="${b.id}" data-activa="${b.activa}">${b.activa?'Desactivar':'Activar'}</button>` : ''}</td>
+    </tr>`).join('');
+  $all('[data-toggle-bodega]', tbody).forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const activa = btn.dataset.activa === 'true';
+      const { error } = await supabase.from('bodegas').update({ activa: !activa }).eq('id', btn.dataset.toggleBodega);
+      if(error){ alert('No se pudo actualizar: ' + mensajeError(error)); return; }
+      await cargarBodegas();
+      renderBodegasTabla();
+    });
+  });
+  $('#card-crear-bodega').style.display = superAdmin ? 'block' : 'none';
+}
+
+$('#form-bodega').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const numero = $('#bo-numero').value.trim();
+  const nombre = $('#bo-nombre').value.trim();
+  const msg = $('#bodega-msg');
+  if(!esSuperAdmin()){
+    msg.innerHTML = '<div class="error-msg">Solo un Super Administrador puede crear bodegas.</div>';
+    return;
+  }
+  msg.innerHTML = '<div class="ok-msg">Creando bodega…</div>';
+  try{
+    const { error } = await supabase.from('bodegas').insert({ numero, nombre });
+    if(error) throw error;
+    await cargarBodegas();
+    renderBodegasTabla();
+    msg.innerHTML = `<div class="ok-msg">Bodega ${escapeHtml(numero)} creada correctamente.</div>`;
+    e.target.reset();
+  } catch(err){
+    msg.innerHTML = '<div class="error-msg">' + escapeHtml(mensajeError(err)) + '</div>';
+  }
+});
+
+/* ============ MIGRAR EXCEL EXISTENTE (una sola vez) ============ */
+function leerLibro(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try{ resolve(XLSX.read(ev.target.result, { type:'array' })); }
+      catch(err){ reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+function valNum(v){ const n = Number(v); return isNaN(n) ? 0 : n; }
+function valStr(v){ return v===undefined || v===null ? '' : String(v); }
+function fechaStr(v){
+  if(v instanceof Date) return v.toISOString().slice(0,10);
+  if(typeof v === 'number'){
+    const d = XLSX.SSF.parse_date_code(v);
+    if(d) return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+  }
+  return valStr(v).slice(0,10) || hoy();
+}
+
+$('#btn-importar-inventario').addEventListener('click', () => $('#file-inventario').click());
+$('#file-inventario').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const msg = $('#datos-msg');
+  if(!esSuperAdmin()){
+    msg.innerHTML = '<div class="error-msg">Solo un Super Administrador puede migrar un inventario desde Excel.</div>';
+    e.target.value = '';
+    return;
+  }
+  msg.innerHTML = '<div class="ok-msg">Leyendo archivo…</div>';
+  try{
+    const wb = await leerLibro(file);
+    const hoja = wb.Sheets[wb.SheetNames[0]];
+    const filas = XLSX.utils.sheet_to_json(hoja, { defval:'' });
+    const paraInsertar = filas.map(f => ({
+      fecha: fechaStr(f.Fecha || f.fecha),
+      producto: valStr(f.Producto || f.producto),
+      descripcion: valStr(f.Descripcion || f['Descripción'] || f.descripcion),
+      marca: valStr(f.Marca || f.marca),
+      talla: valStr(f.Talla || f.talla),
+      proveedor: valStr(f.Proveedor || f.proveedor),
+      ingreso: valNum(f.Ingreso || f.ingreso),
+      salida: valNum(f.Salida || f.salida),
+      saldo: 0,
+      responsable: valStr(f.Responsable || f.responsable || f.Responsible),
+      estante: valStr(f.Estante || f.estante),
+      area: valStr(f['Área'] || f.Area || f.area),
+      costo: valNum(f.Costo || f.costo),
+      costo_total: valNum(f.CostoTotal || f['Costo total'] || f.costo_total),
+      tipo: valStr(f.Tipo || f.tipo) || (valNum(f.Salida||f.salida) > 0 ? 'Salida' : 'Ingreso'),
+      bodega_id: bodegaActual.id,
+      creado_por: sesion.id
+    })).filter(r => r.producto);
+    if(paraInsertar.length === 0){
+      msg.innerHTML = '<div class="error-msg">No se encontraron filas con producto en ese archivo.</div>';
+      return;
+    }
+    const { error } = await supabase.from('movimientos').insert(paraInsertar);
+    if(error) throw error;
+    const productos = Array.from(new Set(paraInsertar.map(r => r.producto)));
+    for(const p of productos) await recalcularSaldosProducto(p);
+    await cargarInventario();
+    msg.innerHTML = `<div class="ok-msg">Se migraron ${paraInsertar.length} movimientos desde ${escapeHtml(file.name)}.</div>`;
+  } catch(err){
+    msg.innerHTML = '<div class="error-msg">No se pudo migrar el archivo: ' + escapeHtml(mensajeError(err)) + '</div>';
+  }
+  e.target.value = '';
+});
+
+/* ============ GESTIÓN: accesos a bodegas ============ */
+function poblarSelectorAccesos(){
+  const sel = $('#acc-usuario');
+  if(!sel) return;
+  const anterior = sel.value;
+  const candidatos = usuarios.filter(u => u.rol !== 'SuperAdministrador');
+  sel.innerHTML = candidatos.map(u => `<option value="${escapeHtml(u.usuario)}">${escapeHtml(u.usuario)} (${escapeHtml(u.rol)})</option>`).join('');
+  if(candidatos.some(u => u.usuario === anterior)) sel.value = anterior;
+}
+
+async function renderAccesosPanel(){
+  if(!esSuperAdmin()) return;
+  poblarSelectorAccesos();
+  const sel = $('#acc-usuario');
+  const lista = $('#acc-lista-bodegas');
+  if(!sel.value){
+    lista.innerHTML = '<p class="desc">No hay usuarios disponibles todavía (los Super Administradores ya tienen acceso a todo).</p>';
+    return;
+  }
+  const perfil = usuarios.find(u => u.usuario === sel.value);
+  const { data, error } = await supabase.from('accesos_bodega').select('bodega_id').eq('perfil_id', perfil.id);
+  if(error){ lista.innerHTML = '<div class="error-msg">' + escapeHtml(mensajeError(error)) + '</div>'; return; }
+  const accesos = new Set(data.map(r => r.bodega_id));
+  lista.innerHTML = bodegas.map(b => `
+    <label style="display:flex; align-items:center; gap:8px; font-size:14px;">
+      <input type="checkbox" value="${b.id}" ${accesos.has(b.id) ? 'checked' : ''}>
+      Bodega ${escapeHtml(b.numero)}${b.nombre ? ' — ' + escapeHtml(b.nombre) : ''}${!b.activa ? ' (inactiva)' : ''}
+    </label>`).join('');
+}
+
+$('#acc-usuario').addEventListener('change', renderAccesosPanel);
+
+$('#btn-guardar-accesos').addEventListener('click', async () => {
+  const msg = $('#acc-msg');
+  const sel = $('#acc-usuario');
+  const perfil = usuarios.find(u => u.usuario === sel.value);
+  if(!perfil){ msg.innerHTML = '<div class="error-msg">Elige un usuario.</div>'; return; }
+  const marcados = $all('#acc-lista-bodegas input[type=checkbox]:checked').map(c => Number(c.value));
+  msg.innerHTML = '<div class="ok-msg">Guardando…</div>';
+  try{
+    const { error: errDel } = await supabase.from('accesos_bodega').delete().eq('perfil_id', perfil.id);
+    if(errDel) throw errDel;
+    if(marcados.length){
+      const { error: errIns } = await supabase.from('accesos_bodega')
+        .insert(marcados.map(bid => ({ perfil_id: perfil.id, bodega_id: bid })));
+      if(errIns) throw errIns;
+    }
+    msg.innerHTML = '<div class="ok-msg">Accesos actualizados para ' + escapeHtml(sel.value) + '.</div>';
+  } catch(err){
+    msg.innerHTML = '<div class="error-msg">' + escapeHtml(mensajeError(err)) + '</div>';
+  }
+});
+
+$('#btn-exportar-inventario').addEventListener('click', () => {
+  const datos = inventario.map(r => ({
+    ID:r.id, Bodega:bodegaActual ? bodegaActual.numero : '', Fecha:r.fecha, Tipo:r.tipo, Producto:r.producto, Descripcion:r.descripcion,
+    Marca:r.marca, Talla:r.talla, Proveedor:r.proveedor,
+    Ingreso:r.ingreso, Salida:r.salida, Saldo:r.saldo, Responsable:r.responsable,
+    Recibe:r.recibe, Autoriza:r.autoriza,
+    Estante:r.estante, Area:r.area, Costo:r.costo, CostoTotal:r.costo_total
+  }));
+  const ws = XLSX.utils.json_to_sheet(datos);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+  XLSX.writeFile(wb, 'inventario-bodega.xlsx');
+});
+
+})();
+</script>
+</body>
+</html>
