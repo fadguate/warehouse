@@ -297,8 +297,8 @@ table.reporte-tabla thead th{ background:#eee; }
 
     <form id="form-login" autocomplete="off">
       <div class="field">
-        <label for="li-usuario">Usuario</label>
-        <input id="li-usuario" type="text" required>
+        <label for="li-correo">Correo electrónico</label>
+        <input id="li-correo" type="email" required>
       </div>
       <div class="field">
         <label for="li-password">Contraseña</label>
@@ -312,12 +312,12 @@ table.reporte-tabla thead th{ background:#eee; }
 
     <form id="form-registro" autocomplete="off" style="display:none;">
       <div class="field">
-        <label for="re-usuario">Elige un nombre de usuario</label>
-        <input id="re-usuario" type="text" required>
+        <label for="re-usuario">Nombre completo</label>
+        <input id="re-usuario" type="text" required placeholder="Ej. Juan Pérez">
       </div>
       <div class="field">
-        <label for="re-correo">Correo electrónico (opcional)</label>
-        <input id="re-correo" type="email" placeholder="tu@correo.com">
+        <label for="re-correo">Correo electrónico</label>
+        <input id="re-correo" type="email" required placeholder="tu@correo.com">
       </div>
       <div class="field">
         <label for="re-password">Elige una contraseña</label>
@@ -331,7 +331,7 @@ table.reporte-tabla thead th{ background:#eee; }
 
     <button type="button" class="btn btn-block" id="btn-alternar-registro" style="margin-top:10px;">¿Primera vez? Crear una cuenta</button>
     <button type="button" class="btn btn-block" id="btn-recuperar-pwd" style="margin-top:6px; font-size:13px; opacity:0.8;">¿Olvidaste la contraseña?</button>
-    <div class="login-hint">La primera cuenta que se registre en este sistema queda automáticamente como <strong>Super Administrador</strong>. Las siguientes entran como Operador, y un Super Administrador puede ascenderlas luego desde Gestión → Usuarios.</div>
+    <div class="login-hint">La primera cuenta que se registre en este sistema queda automáticamente como <strong>Super Administrador</strong>. Las siguientes entran como Operador, y un Super Administrador puede ascenderlas luego desde Gestión → Usuarios. El inicio de sesión es con tu <strong>correo electrónico</strong>, no con tu nombre.</div>
   </div>
 </div>
 
@@ -568,6 +568,15 @@ table.reporte-tabla thead th{ background:#eee; }
           </div>
         </div>
         <div class="card">
+          <h2>Actualizar mi correo</h2>
+          <p class="desc">Necesitas un correo real registrado para poder usar "¿Olvidaste la contraseña?" si algún día la olvidas.</p>
+          <div id="correo-msg"></div>
+          <form id="form-correo">
+            <div class="field"><label>Correo electrónico</label><input type="email" id="co-correo" required placeholder="tu@correo.com"></div>
+            <div class="form-actions"><button type="submit" class="btn btn-primary">Guardar correo</button></div>
+          </form>
+        </div>
+        <div class="card">
           <h2>Cambiar mi contraseña</h2>
           <div id="clave-msg"></div>
           <form id="form-clave">
@@ -580,11 +589,12 @@ table.reporte-tabla thead th{ background:#eee; }
         </div>
         <div class="card">
           <h2>Crear cuenta para un compañero</h2>
-          <p class="desc">Crea el acceso y luego, si hace falta, cambia su rol desde la tabla de arriba (solo un Super Administrador puede hacerlo).</p>
+          <p class="desc">Crea el acceso y luego, si hace falta, cambia su rol desde la tabla de arriba (solo un Super Administrador puede hacerlo). El correo es obligatorio: ahora se inicia sesión con correo, no con nombre de usuario.</p>
           <div id="usuario-msg"></div>
           <form id="form-usuario">
             <div class="form-grid">
-              <div class="field"><label>Usuario</label><input type="text" id="us-usuario" required></div>
+              <div class="field"><label>Nombre completo</label><input type="text" id="us-usuario" required placeholder="Ej. Juan Pérez"></div>
+              <div class="field"><label>Correo electrónico</label><input type="email" id="us-correo" required placeholder="tu@correo.com"></div>
               <div class="field"><label>Contraseña</label><input type="password" id="us-password" required minlength="6"></div>
             </div>
             <div class="form-actions"><button type="submit" class="btn btn-primary">Crear usuario</button></div>
@@ -785,15 +795,14 @@ $('#re-toggle-pwd').addEventListener('click', (e) => {
 });
 
 $('#btn-recuperar-pwd').addEventListener('click', async () => {
-  const usuario = prompt('Ingresa tu nombre de usuario:');
-  if(!usuario) return;
-  const email = emailDe(usuario.trim());
+  const correo = prompt('Ingresa el correo electrónico registrado en tu cuenta:');
+  if(!correo) return;
   try{
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(correo.trim(), {
       redirectTo: window.location.origin + window.location.pathname
     });
     if(error) throw error;
-    alert('Se envió un correo de recuperación a: ' + email + '\n(Revisa tu bandeja de spam si no lo ves)');
+    alert('Si ese correo está registrado, se envió un enlace de recuperación a: ' + correo + '\n(Revisa también tu carpeta de spam)');
   } catch(err){
     alert('No se pudo enviar el correo: ' + mensajeError(err));
   }
@@ -803,10 +812,10 @@ $('#form-login').addEventListener('submit', async (e) => {
   e.preventDefault();
   const errBox = $('#login-error');
   errBox.innerHTML = '';
-  const usuario = $('#li-usuario').value.trim();
+  const correo = $('#li-correo').value.trim();
   const password = $('#li-password').value;
   try{
-    const { error } = await supabase.auth.signInWithPassword({ email: emailDe(usuario), password });
+    const { error } = await supabase.auth.signInWithPassword({ email: correo, password });
     if(error) throw error;
     passwordActual = password;
     await cargarSesionActual();
@@ -823,15 +832,15 @@ $('#form-registro').addEventListener('submit', async (e) => {
   const usuario = $('#re-usuario').value.trim();
   const correo = $('#re-correo').value.trim();
   const password = $('#re-password').value;
-  if(!usuario || password.length < 6){
-    errBox.innerHTML = '<div class="error-msg">Elige un usuario y una contraseña de al menos 6 caracteres.</div>';
+  if(!usuario || !correo || password.length < 6){
+    errBox.innerHTML = '<div class="error-msg">Completa el usuario, el correo, y una contraseña de al menos 6 caracteres.</div>';
     return;
   }
   try{
-    const { error } = await supabase.auth.signUp({ 
-      email: emailDe(usuario), 
-      password, 
-      options:{ data:{ usuario, correo } } 
+    const { error } = await supabase.auth.signUp({
+      email: correo,
+      password,
+      options:{ data:{ usuario } }
     });
     if(error) throw error;
     passwordActual = password;
@@ -855,7 +864,7 @@ async function cargarSesionActual(){
     await supabase.auth.signOut();
     throw new Error('Tu cuenta está desactivada. Contacta a un administrador.');
   }
-  sesion = { id:user.id, usuario:perfil.usuario, rol:perfil.rol, activo:perfil.activo };
+  sesion = { id:user.id, usuario:perfil.usuario, rol:perfil.rol, activo:perfil.activo, correo:user.email };
 }
 
 function entrarApp(){
@@ -958,7 +967,7 @@ async function cerrarSesion(){
   $('#app-root').classList.remove('activo');
   $('#selector-bodega-screen').style.display = 'none';
   $('#login-screen').style.display = 'flex';
-  $('#li-usuario').value = '';
+  $('#li-correo').value = '';
   $('#li-password').value = '';
 }
 $('#btn-logout').addEventListener('click', cerrarSesion);
@@ -1486,14 +1495,15 @@ function renderUsuariosTabla(){
 $('#form-usuario').addEventListener('submit', async (e) => {
   e.preventDefault();
   const usuario = $('#us-usuario').value.trim();
+  const correo = $('#us-correo').value.trim();
   const password = $('#us-password').value;
   const msg = $('#usuario-msg');
   msg.innerHTML = '<div class="ok-msg">Creando cuenta…</div>';
   try{
-    const { error } = await supabase.auth.signUp({ email: emailDe(usuario), password, options:{ data:{ usuario } } });
+    const { error } = await supabase.auth.signUp({ email: correo, password, options:{ data:{ usuario } } });
     if(error) throw error;
     // Crear el usuario nos deja con su sesión activa; recuperamos la nuestra.
-    const { error: errRestaurar } = await supabase.auth.signInWithPassword({ email: emailDe(sesion.usuario), password: passwordActual });
+    const { error: errRestaurar } = await supabase.auth.signInWithPassword({ email: sesion.correo, password: passwordActual });
     if(errRestaurar){
       msg.innerHTML = '<div class="error-msg">El usuario se creó, pero tu sesión se cerró. Vuelve a iniciar sesión.</div>';
       await cargarUsuarios();
@@ -1508,13 +1518,30 @@ $('#form-usuario').addEventListener('submit', async (e) => {
   }
 });
 
+$('#form-correo').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const correo = $('#co-correo').value.trim();
+  const msg = $('#correo-msg');
+  msg.innerHTML = '<div class="ok-msg">Guardando…</div>';
+  try{
+    const { error: errAuth } = await supabase.auth.updateUser({ email: correo });
+    if(errAuth) throw errAuth;
+    const { error: errPerfil } = await supabase.from('perfiles').update({ correo }).eq('id', sesion.id);
+    if(errPerfil) throw errPerfil;
+    msg.innerHTML = '<div class="ok-msg">Listo. Revisa tu correo para confirmar el cambio si tu proyecto lo requiere.</div>';
+    e.target.reset();
+  } catch(err){
+    msg.innerHTML = '<div class="error-msg">' + escapeHtml(mensajeError(err)) + '</div>';
+  }
+});
+
 $('#form-clave').addEventListener('submit', async (e) => {
   e.preventDefault();
   const actual = $('#cl-actual').value;
   const nueva = $('#cl-nueva').value;
   const msg = $('#clave-msg');
   try{
-    const { error: errVerif } = await supabase.auth.signInWithPassword({ email: emailDe(sesion.usuario), password: actual });
+    const { error: errVerif } = await supabase.auth.signInWithPassword({ email: sesion.correo, password: actual });
     if(errVerif){
       msg.innerHTML = '<div class="error-msg">La contraseña actual no es correcta.</div>';
       return;
