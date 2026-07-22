@@ -6,7 +6,8 @@
 <title>M4 FAD Kárdex - Control de Bodega</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.8" integrity="sha384-Tve8O+C6PBzsIMK/IRCwHbi8fyEzXIlIs6OfVBZHubplwYhaQF/4Mzxqgg+pp/oy" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.8"></script>
 <style>
 :root{
   --paper:#ECE3CC;
@@ -331,6 +332,40 @@ table.reporte-tabla thead th{ background:#eee; }
     <button type="button" class="btn btn-block" id="btn-alternar-registro" style="margin-top:10px;">¿Primera vez? Crear una cuenta</button>
     <button type="button" class="btn btn-block" id="btn-recuperar-pwd" style="margin-top:6px; font-size:13px; opacity:0.8;">¿Olvidaste la contraseña?</button>
     <div class="login-hint">La primera cuenta que se registre en este sistema queda automáticamente como <strong>Super Administrador</strong>. Las siguientes entran como Operador, y un Super Administrador puede ascenderlas luego desde Gestión → Usuarios. El inicio de sesión es con tu <strong>correo electrónico</strong>, no con tu nombre.</div>
+  </div>
+</div>
+
+<!-- ===================== MFA: INSCRIPCIÓN OBLIGATORIA ===================== -->
+<div id="mfa-enroll-screen" style="display:none; min-height:100vh; align-items:center; justify-content:center; padding:24px;">
+  <div class="login-card" style="max-width:420px;">
+    <div class="login-eyebrow">Seguridad de la cuenta</div>
+    <h1 style="font-size:22px;">Activa la verificación en dos pasos</h1>
+    <p class="login-sub">Es obligatoria para todas las cuentas. Escanea este código con una app autenticadora (Google Authenticator, Authy, Microsoft Authenticator) y escribe el código de 6 dígitos que te muestre.</p>
+    <div id="mfa-enroll-msg"></div>
+    <div style="display:flex; justify-content:center; margin:16px 0;">
+      <img id="mfa-qr-img" alt="Código QR de verificación" style="width:190px; height:190px; border:1px solid var(--line); background:#fff;">
+    </div>
+    <p style="font-size:11.5px; color:var(--ink-soft); word-break:break-all; text-align:center; margin-bottom:16px;">¿No puedes escanear? Ingresa esta clave manualmente en tu app: <br><strong id="mfa-secret-manual" class="mono"></strong></p>
+    <form id="form-mfa-enroll">
+      <div class="field"><label>Código de 6 dígitos</label><input type="text" id="mfa-enroll-codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required placeholder="000000"></div>
+      <button type="submit" class="btn btn-primary btn-block">Verificar y activar</button>
+    </form>
+    <button type="button" class="btn btn-block" id="btn-logout-mfa-enroll" style="margin-top:14px;">Cerrar sesión</button>
+  </div>
+</div>
+
+<!-- ===================== MFA: VERIFICACIÓN AL INICIAR SESIÓN ===================== -->
+<div id="mfa-challenge-screen" style="display:none; min-height:100vh; align-items:center; justify-content:center; padding:24px;">
+  <div class="login-card" style="max-width:420px;">
+    <div class="login-eyebrow">Seguridad de la cuenta</div>
+    <h1 style="font-size:22px;">Verificación en dos pasos</h1>
+    <p class="login-sub">Ingresa el código de 6 dígitos de tu app autenticadora.</p>
+    <div id="mfa-challenge-msg"></div>
+    <form id="form-mfa-challenge">
+      <div class="field"><label>Código de 6 dígitos</label><input type="text" id="mfa-challenge-codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required placeholder="000000"></div>
+      <button type="submit" class="btn btn-primary btn-block">Verificar</button>
+    </form>
+    <button type="button" class="btn btn-block" id="btn-logout-mfa-challenge" style="margin-top:14px;">Cerrar sesión</button>
   </div>
 </div>
 
@@ -817,8 +852,7 @@ $('#form-login').addEventListener('submit', async (e) => {
     const { error } = await supabase.auth.signInWithPassword({ email: correo, password });
     if(error) throw error;
     passwordActual = password;
-    await cargarSesionActual();
-    entrarApp();
+    await continuarTrasAutenticacion();
   } catch(err){
     errBox.innerHTML = '<div class="error-msg">' + escapeHtml(mensajeError(err)) + '</div>';
   }
@@ -843,12 +877,102 @@ $('#form-registro').addEventListener('submit', async (e) => {
     });
     if(error) throw error;
     passwordActual = password;
-    await cargarSesionActual();
-    entrarApp();
+    await continuarTrasAutenticacion();
   } catch(err){
     errBox.innerHTML = '<div class="error-msg">' + escapeHtml(mensajeError(err)) + '</div>';
   }
 });
+
+/* ============ MFA (verificación en dos pasos, obligatoria para todos) ============ */
+let factorMfaPendienteId = null;
+
+async function continuarTrasAutenticacion(){
+  const errBox = $('#login-error');
+  try{
+    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if(error) throw error;
+    if(data.currentLevel === 'aal2'){
+      await cargarSesionActual();
+      entrarApp();
+      return;
+    }
+    if(data.nextLevel === 'aal2' && data.currentLevel === 'aal1'){
+      mostrarMfaChallenge();
+      return;
+    }
+    await iniciarInscripcionMfa();
+  } catch(err){
+    errBox.innerHTML = '<div class="error-msg">' + escapeHtml(mensajeError(err)) + '</div>';
+  }
+}
+
+async function iniciarInscripcionMfa(){
+  $('#login-screen').style.display = 'none';
+  $('#mfa-challenge-screen').style.display = 'none';
+  $('#mfa-enroll-screen').style.display = 'flex';
+  const msg = $('#mfa-enroll-msg');
+  msg.innerHTML = '<div class="ok-msg">Generando código QR…</div>';
+  try{
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType:'totp', friendlyName:'Kárdex ' + Date.now() });
+    if(error) throw error;
+    factorMfaPendienteId = data.id;
+    $('#mfa-qr-img').src = data.totp.qr_code;
+    $('#mfa-secret-manual').textContent = data.totp.secret;
+    msg.innerHTML = '';
+  } catch(err){
+    msg.innerHTML = '<div class="error-msg">' + escapeHtml(mensajeError(err)) + '</div>';
+  }
+}
+
+function mostrarMfaChallenge(){
+  $('#login-screen').style.display = 'none';
+  $('#mfa-enroll-screen').style.display = 'none';
+  $('#mfa-challenge-screen').style.display = 'flex';
+  $('#mfa-challenge-msg').innerHTML = '';
+}
+
+$('#form-mfa-enroll').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const codigo = $('#mfa-enroll-codigo').value.trim();
+  const msg = $('#mfa-enroll-msg');
+  msg.innerHTML = '<div class="ok-msg">Verificando…</div>';
+  try{
+    const { data: challenge, error: errChallenge } = await supabase.auth.mfa.challenge({ factorId: factorMfaPendienteId });
+    if(errChallenge) throw errChallenge;
+    const { error: errVerify } = await supabase.auth.mfa.verify({ factorId: factorMfaPendienteId, challengeId: challenge.id, code: codigo });
+    if(errVerify) throw errVerify;
+    $('#mfa-enroll-screen').style.display = 'none';
+    await cargarSesionActual();
+    entrarApp();
+  } catch(err){
+    msg.innerHTML = '<div class="error-msg">' + escapeHtml(mensajeError(err)) + '</div>';
+  }
+});
+
+$('#form-mfa-challenge').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const codigo = $('#mfa-challenge-codigo').value.trim();
+  const msg = $('#mfa-challenge-msg');
+  msg.innerHTML = '<div class="ok-msg">Verificando…</div>';
+  try{
+    const { data: factores, error: errFactores } = await supabase.auth.mfa.listFactors();
+    if(errFactores) throw errFactores;
+    const factor = (factores.totp || []).find(f => f.status === 'verified');
+    if(!factor) throw new Error('No se encontró un factor de verificación activo. Cierra sesión y contacta a un Super Administrador.');
+    const { data: challenge, error: errChallenge } = await supabase.auth.mfa.challenge({ factorId: factor.id });
+    if(errChallenge) throw errChallenge;
+    const { error: errVerify } = await supabase.auth.mfa.verify({ factorId: factor.id, challengeId: challenge.id, code: codigo });
+    if(errVerify) throw errVerify;
+    $('#mfa-challenge-screen').style.display = 'none';
+    await cargarSesionActual();
+    entrarApp();
+  } catch(err){
+    msg.innerHTML = '<div class="error-msg">' + escapeHtml(mensajeError(err)) + '</div>';
+  }
+});
+
+$('#btn-logout-mfa-enroll').addEventListener('click', () => cerrarSesion());
+$('#btn-logout-mfa-challenge').addEventListener('click', () => cerrarSesion());
 
 async function cargarSesionActual(){
   const { data:{ user }, error:errUser } = await supabase.auth.getUser();
@@ -965,6 +1089,8 @@ async function cerrarSesion(){
   bodegaActual = null;
   $('#app-root').classList.remove('activo');
   $('#selector-bodega-screen').style.display = 'none';
+  $('#mfa-enroll-screen').style.display = 'none';
+  $('#mfa-challenge-screen').style.display = 'none';
   $('#login-screen').style.display = 'flex';
   $('#li-correo').value = '';
   $('#li-password').value = '';
