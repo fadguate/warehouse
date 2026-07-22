@@ -572,6 +572,7 @@ table.reporte-tabla thead th{ background:#eee; }
         <button data-sub="usuarios">Usuarios</button>
         <button data-sub="bodegas">Bodegas</button>
         <button data-sub="accesos">Accesos a bodegas</button>
+        <button data-sub="auditoria">Auditoría</button>
         <button data-sub="datos">Datos (Excel)</button>
       </div>
 
@@ -668,6 +669,23 @@ table.reporte-tabla thead th{ background:#eee; }
           <div id="acc-lista-bodegas" style="display:flex; flex-direction:column; gap:8px; margin:16px 0;"></div>
           <div id="acc-msg"></div>
           <div class="form-actions"><button class="btn btn-primary" id="btn-guardar-accesos">Guardar accesos</button></div>
+        </div>
+      </div>
+
+      <div class="subpanel" id="sub-auditoria">
+        <div class="card">
+          <h2>Registro de auditoría</h2>
+          <p class="desc">Historial automático de acciones administrativas sensibles: cambios de rol, activación/desactivación de cuentas, aprobación de usuarios, acceso a bodegas otorgado o revocado, creación/activación de bodegas, y eliminación de movimientos. Este registro no se puede editar ni borrar desde la aplicación.</p>
+          <div class="form-actions">
+            <button class="btn" id="btn-exportar-auditoria">Descargar auditoría completa (.xlsx)</button>
+          </div>
+          <div class="table-wrap" style="margin-top:14px;">
+            <table id="tabla-auditoria">
+              <thead><tr><th>Fecha</th><th>Acción</th><th>Realizado por</th><th>Entidad</th><th>Detalle</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div id="auditoria-vacio" class="empty-state" style="display:none;">Todavía no hay eventos de auditoría registrados.</div>
         </div>
       </div>
 
@@ -1136,6 +1154,7 @@ $all('#gestion-tabs button').forEach(btn => {
     btn.classList.add('activo');
     $('#sub-' + btn.dataset.sub).classList.add('activo');
     if(btn.dataset.sub === 'accesos') renderAccesosPanel();
+    if(btn.dataset.sub === 'auditoria') cargarAuditoria();
   });
 });
 
@@ -1174,6 +1193,8 @@ function aplicarPermisosNav(){
   }
   const btnAccesos = document.querySelector('#gestion-tabs button[data-sub="accesos"]');
   if(btnAccesos) btnAccesos.style.display = esSuperAdmin() ? '' : 'none';
+  const btnAuditoria = document.querySelector('#gestion-tabs button[data-sub="auditoria"]');
+  if(btnAuditoria) btnAuditoria.style.display = esSuperAdmin() ? '' : 'none';
 }
 
 function renderDatalists(){
@@ -1850,6 +1871,62 @@ $('#btn-guardar-accesos').addEventListener('click', async () => {
   } catch(err){
     msg.innerHTML = '<div class="error-msg">' + escapeHtml(mensajeError(err)) + '</div>';
   }
+});
+
+/* ============ GESTIÓN: auditoría ============ */
+const ETIQUETAS_ACCION = {
+  cambio_rol: 'Cambio de rol',
+  usuario_activado: 'Usuario activado',
+  usuario_desactivado: 'Usuario desactivado',
+  usuario_aprobado: 'Usuario aprobado',
+  usuario_eliminado: 'Usuario eliminado',
+  acceso_bodega_otorgado: 'Acceso a bodega otorgado',
+  acceso_bodega_revocado: 'Acceso a bodega revocado',
+  bodega_creada: 'Bodega creada',
+  bodega_activada: 'Bodega activada',
+  bodega_desactivada: 'Bodega desactivada',
+  movimiento_eliminado: 'Movimiento eliminado'
+};
+let auditoriaCache = [];
+
+async function cargarAuditoria(){
+  if(!esSuperAdmin()) return;
+  const tbody = $('#tabla-auditoria tbody');
+  const { data, error } = await supabase.from('auditoria').select('*').order('fecha', { ascending:false }).limit(500);
+  if(error){
+    tbody.innerHTML = '';
+    $('#auditoria-vacio').style.display = 'block';
+    $('#auditoria-vacio').textContent = 'No se pudo cargar la auditoría: ' + mensajeError(error);
+    return;
+  }
+  auditoriaCache = data;
+  tbody.innerHTML = data.map(r => `
+    <tr>
+      <td class="mono">${new Date(r.fecha).toLocaleString('es-GT')}</td>
+      <td>${escapeHtml(ETIQUETAS_ACCION[r.accion] || r.accion)}</td>
+      <td>${escapeHtml(r.actor_usuario || '—')}</td>
+      <td>${escapeHtml(r.entidad || '—')}</td>
+      <td class="mono" style="font-size:11.5px;">${escapeHtml(JSON.stringify(r.detalle || {}))}</td>
+    </tr>`).join('');
+  $('#auditoria-vacio').style.display = data.length ? 'none' : 'block';
+  $('#auditoria-vacio').textContent = 'Todavía no hay eventos de auditoría registrados.';
+  $('#tabla-auditoria').style.display = data.length ? 'table' : 'none';
+}
+
+$('#btn-exportar-auditoria').addEventListener('click', async () => {
+  await cargarAuditoria();
+  const datos = auditoriaCache.map(r => ({
+    Fecha: new Date(r.fecha).toLocaleString('es-GT'),
+    Accion: ETIQUETAS_ACCION[r.accion] || r.accion,
+    RealizadoPor: r.actor_usuario || '',
+    Entidad: r.entidad || '',
+    EntidadId: r.entidad_id || '',
+    Detalle: JSON.stringify(r.detalle || {})
+  }));
+  const ws = XLSX.utils.json_to_sheet(datos);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Auditoria');
+  XLSX.writeFile(wb, 'auditoria-kardex.xlsx');
 });
 
 $('#btn-exportar-inventario').addEventListener('click', () => {
