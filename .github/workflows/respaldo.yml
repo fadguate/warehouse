@@ -15,10 +15,10 @@ jobs:
           wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
-     
+          
       - name: Generar respaldo de la base de datos
-        run: pg_dump "${{ secrets.SUPABASE_DB_URL }}" --no-owner --no-acl -f respaldo-kardex.sql
-
+        run: /usr/lib/postgresql/17/bin/pg_dump "${{ secrets.SUPABASE_DB_URL }}" --no-owner --no-acl -f respaldo-kardex.sql
+        
       - name: Guardar respaldo como archivo descargable
         uses: actions/upload-artifact@v4
         with:
