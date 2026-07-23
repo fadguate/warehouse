@@ -1507,7 +1507,7 @@ $('#rep-imprimir').addEventListener('click', () => {
   const totalSalida = filas.reduce((a,r)=>a+(Number(r.salida)||0),0);
   const filasHtml = filas.map(r => `
     <tr>
-      <td>${r.id}</td><td>${bodegaActual ? bodegaActual.numero : '—'}</td><td>${r.fecha}</td><td>${r.tipo}</td><td>${escapeHtml(r.producto)}</td>
+      <td>${r.id}</td><td>${bodegaActual ? escapeHtml(bodegaActual.numero) : '—'}</td><td>${r.fecha}</td><td>${r.tipo}</td><td>${escapeHtml(r.producto)}</td>
       <td>${escapeHtml(r.descripcion)}</td><td>${escapeHtml(r.marca)}</td><td>${escapeHtml(r.talla)}</td><td>${escapeHtml(r.proveedor)}</td>
       <td>${r.ingreso||''}</td><td>${r.salida||''}</td><td>${r.saldo}</td><td>${fmtQ(r.saldo * r.costo)}</td>
       <td>${escapeHtml(r.responsable)}</td><td>${escapeHtml(r.estante)}</td><td>${escapeHtml(r.area)}</td><td>${fmtQ(r.costo)}</td>
