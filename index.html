@@ -282,6 +282,38 @@ table.reporte-tabla thead th{ background:#eee; }
   #print-area{ box-shadow:none; max-width:100%; }
   .no-print{ display:none !important; }
 }
+
+/* ---------- Escritorio: todo un poco más grande y espacioso ---------- */
+@media (min-width: 900px){
+  body{ font-size:15.5px; }
+  main{ max-width:1320px; padding:40px 44px; }
+  .card{ padding:30px 34px; margin-bottom:24px; }
+  .card h2{ font-size:22px; }
+  .card .desc{ font-size:14.5px; }
+  .field{ margin-bottom:18px; }
+  .field label{ font-size:12.5px; }
+  .field input, .field select{ font-size:15px; padding:12px 14px; }
+  .btn{ font-size:14px; padding:11px 20px; }
+  .btn-sm{ font-size:13px; padding:8px 14px; }
+  table{ font-size:14.5px; }
+  thead th{ font-size:11.5px; padding-top:10px; padding-bottom:10px; }
+  tbody td{ padding-top:10px; padding-bottom:10px; }
+  .stat-box .value{ font-size:27px; }
+  .stat-box .label{ font-size:11.5px; }
+  .tag{ font-size:11.5px; padding:4px 10px; }
+  .topbar{ padding:18px 32px; }
+  .topbar h1{ font-size:20px; }
+  .topbar .sub{ font-size:12px; }
+  .tab-btn{ font-size:14.5px; padding:12px 22px; }
+  .login-card{ max-width:460px !important; padding:44px 40px 34px !important; }
+  .login-card h1{ font-size:29px; }
+  .login-sub{ font-size:14px; }
+  .login-eyebrow{ font-size:12px; }
+  #acerca-card{ max-width:480px !important; padding:32px 30px !important; }
+}
+@media (min-width: 1400px){
+  main{ max-width:1480px; }
+}
 </style>
 </head>
 <body>
@@ -733,10 +765,10 @@ table.reporte-tabla thead th{ background:#eee; }
     </div>
     <p style="margin-top:2px; font-weight:700; font-size:16px; color:#1a1a1a;">M4 FAD Kárdex<br><span style="font-weight:400; font-size:13px; color:#777;">Control de Bodega</span></p>
     <p>
-      <strong>Diseño y desarrollo:</strong> Leonel M. para IJM.
+      M4 FAD Kárdex es una aplicación web de control de inventario, construida en HTML, CSS y JavaScript, asistida con metodologías de desarrollo IA. Los datos, el inicio de sesión y la sincronización en tiempo real se manejan mediante Supabase, y la aplicación se aloja en GitHub Pages.
     </p>
     <p>
-      Esta aplicación fue creada utilizando metodologías de desarrollo asistido por IA.
+      <strong>Diseño y desarrollo:</strong> Equipo FAD
     </p>
     <button type="button" class="btn btn-primary btn-block" id="btn-cerrar-acerca-2">Cerrar</button>
   </div>
