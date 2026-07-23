@@ -1,0 +1,23 @@
+name: Respaldo semanal de la base de datos
+
+on:
+  schedule:
+    - cron: '0 6 1,15 * *'
+  workflow_dispatch:
+
+jobs:
+  respaldo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instalar cliente de PostgreSQL
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Generar respaldo de la base de datos
+        run: pg_dump "${{ secrets.SUPABASE_DB_URL }}" --no-owner --no-acl -f respaldo-kardex.sql
+
+      - name: Guardar respaldo como archivo descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: respaldo-kardex-${{ github.run_id }}
+          path: respaldo-kardex.sql
+          retention-days: 90
